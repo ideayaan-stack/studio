@@ -20,6 +20,7 @@ import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import type { Team, Role } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 const roles: Role[] = ['Core', 'Semi-core', 'Head', 'Volunteer'];
 
@@ -29,9 +30,6 @@ const addUserSchema = z.object({
     displayName: z.string().min(2, { message: 'Display name is required' }),
     role: z.enum(roles),
     teamId: z.string().optional(),
-}).refine(data => data.role === 'Core' || !!data.teamId, {
-    message: "A team is required for non-Core members",
-    path: ["teamId"],
 });
 
 type AddUserInput = z.infer<typeof addUserSchema>;
@@ -56,6 +54,9 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
     formState: { errors },
   } = useForm<AddUserInput>({
     resolver: zodResolver(addUserSchema),
+    defaultValues: {
+      teamId: '',
+    }
   });
 
   const selectedRole = watch('role');
@@ -63,8 +64,11 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
 
   const onSubmit: SubmitHandler<AddUserInput> = async (data) => {
     setIsLoading(true);
+    // Ensure teamId is not sent for Core members
+    const finalTeamId = data.role === 'Core' ? '' : data.teamId;
+
     try {
-      await createUser(data.email, data.password, data.displayName, data.role, data.teamId);
+      await createUser(data.email, data.password, data.displayName, data.role, finalTeamId);
       toast({
         title: 'User Created',
         description: `${data.displayName} has been added to the system.`,
@@ -84,12 +88,17 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        reset();
+      }
+      setIsOpen(open);
+    }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add New User</DialogTitle>
           <DialogDescription>
-            Create a new account and assign a role and team. The user will be sent their credentials.
+            Create a new account and assign a role and team.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
@@ -110,7 +119,7 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
-            <Select onValueChange={(value: Role) => setValue('role', value)}>
+            <Select onValueChange={(value: Role) => setValue('role', value, { shouldValidate: true })}>
                 <SelectTrigger>
                     <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
@@ -123,22 +132,21 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
             {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
           </div>
 
-          {isTeamRequired && (
-            <div className="space-y-2">
-                <Label htmlFor="teamId">Team</Label>
-                <Select onValueChange={(value) => setValue('teamId', value)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {teams.filter(team => team.name !== 'Core').map(team => (
-                            <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                {errors.teamId && <p className="text-xs text-destructive">{errors.teamId.message}</p>}
-            </div>
-          )}
+          <div className={cn("space-y-2 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-50 pointer-events-none')}>
+              <Label htmlFor="teamId">Team (Optional for non-Core)</Label>
+              <Select onValueChange={(value) => setValue('teamId', value)} defaultValue="">
+                  <SelectTrigger>
+                      <SelectValue placeholder="Select a team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="">No Team</SelectItem>
+                      {teams.filter(team => team.name !== 'Core').map(team => (
+                          <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
+              {errors.teamId && <p className="text-xs text-destructive">{errors.teamId.message}</p>}
+          </div>
 
           <DialogFooter>
             <Button type="submit" disabled={isLoading}>

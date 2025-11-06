@@ -30,7 +30,7 @@
         },
         "teamId": {
           "type": "string",
-          "description": "The ID of the team the user belongs to."
+          "description": "The ID of the team the user belongs to. Can be empty if unassigned."
         }
       },
       "required": ["uid", "email", "role"]
@@ -60,7 +60,7 @@
           "description": "The UID of the user who is the head of this team."
         }
       },
-      "required": ["name", "head"]
+      "required": ["name"]
     },
     "Task": {
       "title": "Task",

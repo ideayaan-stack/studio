@@ -2,7 +2,7 @@
 
 import { suggestTasks as suggestTasksFlow, SuggestTasksInput } from '@/ai/flows/ai-task-suggester';
 import { initializeFirebase } from '@/firebase';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection } from 'firebase/firestore';
 
 export type SuggestTasksState = {
   message: string | null;

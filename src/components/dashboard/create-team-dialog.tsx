@@ -78,7 +78,7 @@ export function CreateTeamDialog({ isOpen, setIsOpen, users }: CreateTeamDialogP
             <Input id="name" name="name" placeholder="e.g., Media Committee" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Description (Optional)</Label>
             <Textarea id="description" name="description" placeholder="What is the purpose of this team?" />
           </div>
           <div className="space-y-2">
