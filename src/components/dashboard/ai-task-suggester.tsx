@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useFormStatus } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -44,7 +44,7 @@ function SubmitButton() {
 }
 
 export function AiTaskSuggester() {
-  const [state, formAction] = useFormState(suggestTasksAction, initialState);
+  const [state, formAction] = useActionState(suggestTasksAction, initialState);
   const [open, setOpen] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useFormStatus } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -40,7 +40,7 @@ function SubmitButton() {
 }
 
 export function CreateTeamDialog({ isOpen, setIsOpen, users }: CreateTeamDialogProps) {
-  const [state, formAction] = useFormState(createTeamAction, initialState);
+  const [state, formAction] = useActionState(createTeamAction, initialState);
   const { toast } = useToast();
 
   useEffect(() => {
