@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreVertical, FileText, User, Calendar } from 'lucide-react';
+import { PlusCircle, MoreVertical, FileText, User, Calendar, AlertTriangle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,23 +22,41 @@ import { useMemo } from 'react';
 import { collection, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function FilesPage() {
-  const { db, userProfile } = useAuth();
-  const isCoreOrSemiCore = userProfile?.role === 'Core' || userProfile?.role === 'Semi-core';
+  const { db, userProfile, isCoreAdmin } = useAuth();
 
   const filesQuery = useMemo(() => {
     if (!db) return null;
-    if (isCoreOrSemiCore) {
+    // Core/Semi-core admins see all files
+    if (isCoreAdmin) {
       return collection(db, 'files');
     }
+    // Team members see files associated with their team
     if (userProfile?.teamId) {
       return query(collection(db, 'files'), where('teamId', '==', userProfile.teamId));
     }
+    // Return null if no specific query can be formed (e.g., unassigned user)
     return null;
-  }, [db, userProfile, isCoreOrSemiCore]);
+  }, [db, userProfile, isCoreAdmin]);
 
   const { data: files, loading } = useCollection<FileItem>(filesQuery);
+
+  const canUpload = isCoreAdmin || userProfile?.role === 'Head';
+
+  // Component to show when a user is not assigned to a team
+  if (!loading && !isCoreAdmin && !userProfile?.teamId) {
+    return (
+       <Alert variant="default" className="max-w-xl mx-auto">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>No Team Assigned</AlertTitle>
+          <AlertDescription>
+            You are not currently assigned to a team. You cannot view or upload files until an administrator assigns you to one. Please contact a Core team member.
+          </AlertDescription>
+        </Alert>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -47,7 +65,7 @@ export default function FilesPage() {
                 <h1 className="text-2xl font-headline font-bold">Files</h1>
                 <p className="text-muted-foreground">Access and manage all team documents.</p>
             </div>
-            {isCoreOrSemiCore && (
+            {canUpload && (
               <Button size="sm" className="gap-1">
                   <PlusCircle className="h-4 w-4" />
                   Upload File
@@ -73,63 +91,64 @@ export default function FilesPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {files?.map((file) => (
-              <Card key={file.id} className="shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                <CardHeader className="p-0 relative">
-                  <Image
-                    src={PlaceHolderImages.find(p => p.id === 'file-preview-1')?.imageUrl!} // Placeholder until file previews are implemented
-                    alt={`Preview of ${file.name}`}
-                    width={400}
-                    height={300}
-                    data-ai-hint={'document paper'}
-                    className="object-cover rounded-t-lg aspect-[4/3]"
-                  />
-                  <div className="absolute top-2 right-2">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="secondary" size="icon" className="h-7 w-7 rounded-full bg-background/70 hover:bg-background">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Download</DropdownMenuItem>
-                          {isCoreOrSemiCore && (
-                            <>
-                              <DropdownMenuItem>Rename</DropdownMenuItem>
-                              <DropdownMenuItem>Move</DropdownMenuItem>
-                              <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 flex-grow">
-                  <CardTitle className="text-sm font-medium leading-normal flex items-start gap-2">
-                    <FileText className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0"/> 
-                    <span className='truncate hover:text-clip'>{file.name}</span>
-                  </CardTitle>
-                </CardContent>
-                <CardFooter className="p-4 pt-0 text-xs text-muted-foreground flex justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5" />
-                    {/* In a real app, you'd fetch the user's name from their UID */}
-                    <span>{file.uploadedBy.substring(0, 8)}...</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>{format(file.uploadDate.toDate(), 'yyyy-MM-dd')}</span>
-                  </div>
-                </CardFooter>
-              </Card>
-            ))}
-            {files?.length === 0 && (
-              <div className="col-span-full text-center text-muted-foreground py-10">
-                No files found.
-              </div>
-            )}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {files?.map((file) => (
+                <Card key={file.id} className="shadow-sm hover:shadow-md transition-shadow flex flex-col">
+                  <CardHeader className="p-0 relative">
+                    <Image
+                      src={PlaceHolderImages.find(p => p.id === 'file-preview-1')?.imageUrl!} // Placeholder until file previews are implemented
+                      alt={`Preview of ${file.name}`}
+                      width={400}
+                      height={300}
+                      data-ai-hint={'document paper'}
+                      className="object-cover rounded-t-lg aspect-[4/3]"
+                    />
+                    <div className="absolute top-2 right-2">
+                      <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="secondary" size="icon" className="h-7 w-7 rounded-full bg-background/70 hover:bg-background">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>Download</DropdownMenuItem>
+                            {(isCoreAdmin || file.uploadedBy === userProfile?.uid) && (
+                              <>
+                                <DropdownMenuItem>Rename</DropdownMenuItem>
+                                <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 flex-grow">
+                    <CardTitle className="text-sm font-medium leading-normal flex items-start gap-2">
+                      <FileText className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0"/> 
+                      <span className='truncate hover:text-clip'>{file.name}</span>
+                    </CardTitle>
+                  </CardContent>
+                  <CardFooter className="p-4 pt-0 text-xs text-muted-foreground flex justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5" />
+                      {/* In a real app, you'd fetch the user's name from their UID */}
+                      <span>{file.uploadedBy.substring(0, 8)}...</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>{format(new Date(file.uploadDate.seconds * 1000), 'yyyy-MM-dd')}</span>
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+            {files?.length === 0 && !loading && (
+                <div className="col-span-full text-center text-muted-foreground py-10">
+                  No files found for your team.
+                </div>
+              )}
+          </>
         )}
     </div>
   );

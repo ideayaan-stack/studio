@@ -28,8 +28,8 @@ service cloud.firestore {
     match /users/{userId} {
       // Anyone can create their own user profile document.
       allow create: if isSignedIn();
-      // Users can only read their own profile. Core team can read any profile.
-      allow read: if isSignedIn() && (isUser(userId) || isRole('Core'));
+      // Users can only read their own profile. Core/Semi-core can read any profile.
+      allow read: if isSignedIn() && (isUser(userId) || isRole('Core') || isRole('Semi-core'));
       // Users can update their own profile. Core team can update any profile (e.g., to change role).
       allow update: if isSignedIn() && (isUser(userId) || isRole('Core'));
       // Only Core team can delete users.
@@ -38,16 +38,22 @@ service cloud.firestore {
 
     // TEAMS
     match /teams/{teamId} {
-      // All signed-in users can read team data.
-      allow read: if isSignedIn();
+      // Users can read data only for their own team. Core/Semi-core can read all teams.
+      allow read: if isSignedIn() && (isTeamMember(teamId) || isRole('Core') || isRole('Semi-core'));
       // Only Core team can create, update, or delete teams.
       allow write: if isSignedIn() && isRole('Core');
     }
 
     // TASKS
     match /tasks/{taskId} {
-      // Any signed in user can read tasks. Further filtering happens client-side.
-      allow read: if isSignedIn();
+      // Users can read tasks if they are a member of the task's team, or if the task is assigned to them.
+      // Core/Semi-core can read all tasks.
+      allow read: if isSignedIn() && (
+        isRole('Core') ||
+        isRole('Semi-core') ||
+        isTeamMember(resource.data.teamId) ||
+        isUser(resource.data.assignee.uid)
+      );
 
       // Creating tasks: Core, Semi-core, and Heads can create.
       allow create: if isSignedIn() && (isRole('Core') || isRole('Semi-core') || isRole('Head'));
@@ -68,10 +74,10 @@ service cloud.firestore {
 
     // FILES
     match /files/{fileId} {
-       // Any signed in user can read file metadata.
-      allow read: if isSignedIn();
-      // Any signed-in user can create (upload) a file.
-      allow create: if isSignedIn();
+       // Users can read file metadata if they are part of the team. Core/Semi-core can read all.
+      allow read: if isSignedIn() && (isRole('Core') || isRole('Semi-core') || isTeamMember(resource.data.teamId));
+      // Any signed-in user can create (upload) a file. Let's scope this to team members.
+      allow create: if isSignedIn() && (isTeamMember(request.resource.data.teamId) || isRole('Core') || isRole('Semi-core'));
       // Only Core/Semi-core or the user who uploaded the file can delete it.
       allow delete: if isSignedIn() && (isRole('Core') || isRole('Semi-core') || isUser(resource.data.uploadedBy));
       // No updates to file metadata allowed for now to keep it simple.

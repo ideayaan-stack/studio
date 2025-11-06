@@ -18,8 +18,12 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task }: TaskCardProps) {
-  const { userProfile } = useAuth();
-  const canEdit = userProfile?.role === 'Core' || userProfile?.role === 'Semi-core' || userProfile?.role === 'Head';
+  const { userProfile, isCoreAdmin } = useAuth();
+  
+  // Core admins, semi-core, and heads can edit.
+  const canFullyEdit = isCoreAdmin || userProfile?.role === 'Head';
+  // The assigned volunteer can only update the status.
+  const isAssignee = userProfile?.uid === task.assignee.uid;
 
   const getStatusVariant = (status: Task["status"]) => {
     switch (status) {
@@ -42,7 +46,7 @@ export function TaskCard({ task }: TaskCardProps) {
     <Card className="mb-4 shadow-sm hover:shadow-md transition-shadow bg-card">
       <CardHeader className="p-4 flex flex-row items-start justify-between">
         <CardTitle className="text-base font-medium leading-none">{task.title}</CardTitle>
-        {canEdit && (
+        {(canFullyEdit || isAssignee) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -50,10 +54,16 @@ export function TaskCard({ task }: TaskCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Edit Task</DropdownMenuItem>
-              <DropdownMenuItem>Change Status</DropdownMenuItem>
-              <DropdownMenuItem>Assign To...</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive focus:text-destructive/90">Delete</DropdownMenuItem>
+              {canFullyEdit ? (
+                <>
+                  <DropdownMenuItem>Edit Task</DropdownMenuItem>
+                  <DropdownMenuItem>Change Status</DropdownMenuItem>
+                  <DropdownMenuItem>Assign To...</DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive/90">Delete</DropdownMenuItem>
+                </>
+              ) : (
+                 <DropdownMenuItem>Change Status</DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal, Users, User, Edit } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Users, User, Edit, AlertTriangle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,43 +26,62 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { Team, UserProfile } from '@/lib/types';
 import { useAuth, useCollection } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo, useState } from 'react';
 import { AddUserDialog } from '@/components/dashboard/add-user-dialog';
 import { CreateTeamDialog } from '@/components/dashboard/create-team-dialog';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function TeamsPage() {
-  const { db, user, isCoreAdmin, loading: authLoading } = useAuth();
+  const { db, userProfile, isCoreAdmin, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isAddUserDialogOpen, setAddUserDialogOpen] = useState(false);
   const [isCreateTeamDialogOpen, setCreateTeamDialogOpen] = useState(false);
+  
+  const isHead = userProfile?.role === 'Head';
 
-  const teamsQuery = useMemo(() => (db ? collection(db, 'teams') : null), [db]);
-  const usersQuery = useMemo(() => (db ? collection(db, 'users') : null), [db]);
+  // Admins see all teams. Heads see only their team.
+  const teamsQuery = useMemo(() => {
+      if (!db) return null;
+      if (isCoreAdmin) return collection(db, 'teams');
+      if (isHead && userProfile?.teamId) return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
+      return null;
+  }, [db, isCoreAdmin, isHead, userProfile?.teamId]);
+
+  // Admins see all users. Heads see users in their team.
+  const usersQuery = useMemo(() => {
+      if (!db) return null;
+      if (isCoreAdmin) return collection(db, 'users');
+      if (isHead && userProfile?.teamId) return query(collection(db, 'users'), where('teamId', '==', userProfile.teamId));
+      return null;
+  }, [db, isCoreAdmin, isHead, userProfile?.teamId]);
+
 
   const { data: teams, loading: teamsLoading } = useCollection<Team>(teamsQuery);
   const { data: users, loading: usersLoading } = useCollection<UserProfile>(usersQuery);
   
   const isLoading = authLoading || teamsLoading || usersLoading;
   
+  // Only Core admins can do top-level management
   const canManage = isCoreAdmin;
 
   const usersWithTeamInfo = useMemo(() => {
     if (!users || !teams) return [];
+    const allTeams = isCoreAdmin ? teams : (isHead ? teams : []);
     return users.map(user => {
-      const team = teams.find(t => t.id === user.teamId);
+      const team = allTeams?.find(t => t.id === user.teamId);
       return {
         ...user,
         teamName: team?.name || 'Unassigned',
       };
     });
-  }, [users, teams]);
+  }, [users, teams, isCoreAdmin, isHead]);
 
   const handleUpdateRole = async (uid: string, role: UserProfile['role']) => {
-    if (!db) return;
+    if (!db || !canManage) return;
     const userDocRef = doc(db, 'users', uid);
     try {
         await updateDoc(userDocRef, { role });
@@ -71,6 +90,19 @@ export default function TeamsPage() {
         toast({ variant: "destructive", title: "Error", description: error.message });
     }
   };
+  
+  // Volunteers should not see this page. Redirect or show a message.
+  if (!isLoading && userProfile?.role === 'Volunteer') {
+      return (
+        <Alert variant="default" className="max-w-xl mx-auto">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>
+            This page is for team management and is only accessible to Admins and Team Heads. Please navigate to other sections using the sidebar.
+          </AlertDescription>
+        </Alert>
+      )
+  }
 
   return (
     <>
@@ -96,7 +128,7 @@ export default function TeamsPage() {
                   <TableHead>Description</TableHead>
                   <TableHead>Team Head</TableHead>
                   <TableHead className="text-center">Members</TableHead>
-                  {canManage && <TableHead className="text-right">Actions</TableHead>}
+                  {(canManage || isHead) && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -107,7 +139,7 @@ export default function TeamsPage() {
                       <TableCell><Skeleton className="h-5 w-full max-w-sm" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell className="text-center"><Skeleton className="h-5 w-10 mx-auto" /></TableCell>
-                      {canManage && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
+                      {(canManage || isHead) && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
                     </TableRow>
                   ))
                 ) : (
@@ -120,7 +152,7 @@ export default function TeamsPage() {
                       <TableCell className='text-muted-foreground max-w-sm truncate'>{team.description}</TableCell>
                       <TableCell className='text-muted-foreground'>{headUser?.displayName || 'N/A'}</TableCell>
                       <TableCell className="text-center">{memberCount}</TableCell>
-                      {canManage && (
+                      {(canManage || isHead) && (
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -132,7 +164,7 @@ export default function TeamsPage() {
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem>Edit</DropdownMenuItem>
                               <DropdownMenuItem>Manage Members</DropdownMenuItem>
-                              <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>
+                              {canManage && <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -141,7 +173,7 @@ export default function TeamsPage() {
                   )})
                 )}
                 {!isLoading && teams?.length === 0 && (
-                    <TableRow><TableCell colSpan={canManage ? 5 : 4} className="h-24 text-center">No teams found. Get started by creating a team.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={canManage || isHead ? 5 : 4} className="h-24 text-center">No teams found. Get started by creating a team.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -152,9 +184,9 @@ export default function TeamsPage() {
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                     <CardTitle className='font-headline'>Users</CardTitle>
-                    <CardDescription>Manage all user accounts and roles.</CardDescription>
+                    <CardDescription>Manage user accounts and roles within your scope.</CardDescription>
                 </div>
-                 {canManage && (
+                 {(canManage || isHead) && (
                     <Button size="sm" className="gap-1" onClick={() => setAddUserDialogOpen(true)}>
                         <User className="h-4 w-4" />
                         Add User
@@ -169,7 +201,7 @@ export default function TeamsPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Team</TableHead>
-                    {canManage && <TableHead className="text-right">Actions</TableHead>}
+                    {(canManage || isHead) && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -180,7 +212,7 @@ export default function TeamsPage() {
                                 <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                                 <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                                 <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                {canManage && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
+                                {(canManage || isHead) && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
                             </TableRow>
                         ))
                     ) : (
@@ -190,7 +222,7 @@ export default function TeamsPage() {
                                 <TableCell className='text-muted-foreground'>{user.email}</TableCell>
                                 <TableCell><Badge variant={user.role === 'Core' ? 'default' : 'secondary'}>{user.role}</Badge></TableCell>
                                 <TableCell className={cn('font-medium', user.teamName === 'Unassigned' && 'text-destructive')}>{user.teamName}</TableCell>
-                                {canManage && (
+                                {(canManage || (isHead && user.uid !== userProfile?.uid)) && (
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
@@ -202,9 +234,9 @@ export default function TeamsPage() {
                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                 <DropdownMenuItem>Edit User</DropdownMenuItem>
                                                 <DropdownMenuItem>Change Team</DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => handleUpdateRole(user.uid, user.role === 'Core' ? 'Volunteer' : 'Core')}>
+                                                {canManage && <DropdownMenuItem onSelect={() => handleUpdateRole(user.uid, user.role === 'Core' ? 'Volunteer' : 'Core')}>
                                                     Make {user.role === 'Core' ? 'Volunteer' : 'Core'}
-                                                </DropdownMenuItem>
+                                                </DropdownMenuItem>}
                                                 <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete User</DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -222,18 +254,18 @@ export default function TeamsPage() {
         </Card>
       </div>
 
-      {canManage && (
+      {(canManage || isHead) && (
         <>
           <AddUserDialog 
             isOpen={isAddUserDialogOpen} 
             setIsOpen={setAddUserDialogOpen} 
             teams={teams || []} 
           />
-          <CreateTeamDialog
+          {canManage && <CreateTeamDialog
             isOpen={isCreateTeamDialogOpen}
             setIsOpen={setCreateTeamDialogOpen}
             users={users || []}
-          />
+          />}
         </>
       )}
     </>
