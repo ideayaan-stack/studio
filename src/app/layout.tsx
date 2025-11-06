@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'Treo - Event & Team Management',
+  title: 'Ideayaan - Event & Team Management',
   description: 'A role-based event and team management system for college committees.',
 };
 
