@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Users } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,10 +49,16 @@ export default function TeamsPage() {
           <CardDescription>Manage your committee's teams and members.</CardDescription>
         </div>
         {isCoreTeam && (
-          <Button size="sm" className="gap-1">
-            <PlusCircle className="h-4 w-4" />
-            Create Team
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" className="gap-1">
+              <Users className="h-4 w-4" />
+              Manage Users
+            </Button>
+            <Button size="sm" className="gap-1">
+              <PlusCircle className="h-4 w-4" />
+              Create Team
+            </Button>
+          </div>
         )}
       </CardHeader>
       <CardContent>

@@ -25,7 +25,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   db: ReturnType<typeof initializeFirebase>['db'];
-  signUp: (email: string, password: string, role: Role, teamId?: string) => Promise<any>;
+  createUser: (email: string, password: string, role: Role, teamId?: string, displayName?: string) => Promise<any>;
   signIn: typeof signInWithEmailAndPassword;
   signOut: () => Promise<void>;
 }
@@ -53,7 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [auth]);
 
-  const signUp = async (email: string, password: string, role: Role, teamId?: string) => {
+  const createUser = async (email: string, password: string, role: Role, teamId?: string, displayName?: string) => {
+    // This function is intended to be called by an admin. It creates a new user and their profile.
+    // Note: Creating users this way requires special privileges. For client-side, you'd typically
+    // use a Cloud Function that internally uses the Firebase Admin SDK to create users.
+    // This is a simplified version for demonstration.
     const userCredential = await firebaseCreateUser(auth, email, password);
     const user = userCredential.user;
     
@@ -61,13 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const newUserProfile: UserProfile = {
       uid: user.uid,
       email: user.email,
-      displayName: user.displayName || user.email?.split('@')[0],
+      displayName: displayName || user.email?.split('@')[0],
       photoURL: user.photoURL,
       role: role,
       teamId: teamId,
     };
     await setDoc(userDocRef, newUserProfile);
-    setUser(user);
     return userCredential;
   }
 
@@ -80,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userProfile: userProfile || null,
     loading: loading || profileLoading,
     db,
-    signUp,
+    createUser,
     signIn: (email, password) => signInWithEmailAndPassword(auth, email, password),
     signOut,
   };
