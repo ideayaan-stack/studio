@@ -38,7 +38,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signIn(email, password);
-      router.push('/dashboard');
+      // Let the useEffect handle redirection
     } catch (error) {
       const firebaseError = error as FirebaseError;
       let title = "Authentication Failed";
@@ -68,7 +68,18 @@ export default function LoginPage() {
     }
   }, [user, router]);
   
-  if (user || loading) {
+  // This page should not be accessible if the user is already logged in and not in a loading state.
+  if (user && !loading) {
+    // router.push is handled in useEffect
+    return (
+        <div className="flex min-h-screen items-center justify-center">
+            <Loader2 className="animate-spin h-10 w-10 text-primary" />
+            <p className="ml-2">Redirecting to dashboard...</p>
+        </div>
+    );
+  }
+  
+  if (loading) {
     return (
         <div className="flex min-h-screen items-center justify-center">
             <Loader2 className="animate-spin h-10 w-10 text-primary" />

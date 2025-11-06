@@ -131,7 +131,7 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
                         <SelectValue placeholder="Select a team" />
                     </SelectTrigger>
                     <SelectContent>
-                        {teams.map(team => (
+                        {teams.filter(team => team.name !== 'Core').map(team => (
                             <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
                         ))}
                     </SelectContent>
