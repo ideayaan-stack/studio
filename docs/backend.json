@@ -1,0 +1,166 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Represents a user's profile information.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "photoURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the user's profile picture."
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role in the system.",
+          "enum": ["Core", "Semi-core", "Head", "Volunteer", "Unassigned"]
+        },
+        "teamId": {
+          "type": "string",
+          "description": "The ID of the team the user belongs to."
+        }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "Represents a team or committee.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the team."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the team's purpose."
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "An array of user UIDs who are members of this team."
+        },
+        "head": {
+          "type": "string",
+          "description": "The UID of the user who is the head of this team."
+        }
+      },
+      "required": ["name", "head"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Represents a single task or to-do item.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "In Progress", "Completed"]
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "teamId": {
+          "type": "string"
+        },
+        "assignee": {
+          "type": "object",
+          "properties": {
+            "uid": { "type": "string" },
+            "name": { "type": "string" },
+            "avatarUrl": { "type": "string", "format": "uri" }
+          },
+          "required": ["uid", "name"]
+        },
+        "createdAt": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+        }
+      },
+      "required": ["title", "status", "deadline", "teamId", "assignee", "createdAt", "updatedAt"]
+    },
+    "File": {
+      "title": "File",
+      "description": "Represents an uploaded file or document.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "The MIME type of the file."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "size": {
+          "type": "number",
+          "description": "File size in bytes."
+        },
+        "uploadDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "uploadedBy": {
+          "type": "string",
+          "description": "UID of the user who uploaded the file."
+        },
+        "teamId": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "type", "url", "size", "uploadDate", "uploadedBy", "teamId"]
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Stores public profiles for all users."
+    },
+    "/teams/{teamId}": {
+      "schema": { "$ref": "#/entities/Team" },
+      "description": "Stores information about each team."
+    },
+    "/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Stores all tasks for all teams."
+    },
+    "/files/{fileId}": {
+      "schema": { "$ref": "#/entities/File" },
+      "description": "Stores metadata for all uploaded files."
+    }
+  }
+}

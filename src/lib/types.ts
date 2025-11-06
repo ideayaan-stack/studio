@@ -1,13 +1,16 @@
 import type { LucideIcon } from "lucide-react";
+import type { Timestamp } from "firebase/firestore";
 
-export type Role = 'core-team' | 'team-member' | 'viewer';
+export type Role = 'Core' | 'Semi-core' | 'Head' | 'Volunteer' | 'Unassigned';
 
-export type User = {
-  name: string;
-  email: string;
+export interface UserProfile {
+  uid: string;
+  email?: string | null;
+  displayName?: string | null;
+  photoURL?: string | null;
   role: Role;
-  teamId?: string; // Optional: A user might not be in a team
-};
+  teamId?: string;
+}
 
 export type NavItem = {
   href: string;
@@ -16,37 +19,44 @@ export type NavItem = {
   tooltip: string;
 };
 
-export type Task = {
+export interface Task {
   id: string;
   title: string;
   description: string;
   status: 'Pending' | 'In Progress' | 'Completed';
-  deadline: string;
+  deadline: Timestamp;
   teamId: string;
   assignee: {
+    uid: string;
     name: string;
-    avatarUrl: string;
-    avatarHint: string;
+    avatarUrl?: string;
+    avatarHint?: string;
   };
-};
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
 
-export type Team = {
+
+export interface Team {
   id: string;
   name: string;
-  memberCount: number;
   description: string;
-};
+  members: string[]; // array of user uids
+  head: string; // user uid
+}
 
-export type FileItem = {
+
+export interface FileItem {
   id: string;
   name: string;
-  type: 'PDF' | 'Image' | 'Doc';
-  uploadDate: string;
-  uploadedBy: string;
-  previewUrl: string;
-  previewHint: string;
+  type: string; // MIME type
+  uploadDate: Timestamp;
+  uploadedBy: string; // user uid
+  url: string;
   teamId: string;
-};
+  taskId?: string;
+  size: number; // in bytes
+}
 
 export type Message = {
   id: string;

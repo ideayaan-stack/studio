@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isRole(role) {
+      return getUserData().role == role;
+    }
+
+    function isTeamMember(teamId) {
+      return getUserData().teamId == teamId;
+    }
+    
+    // USERS
+    match /users/{userId} {
+      // Anyone can create their own user profile document.
+      allow create: if isSignedIn();
+      // Users can only read their own profile. Core team can read any profile.
+      allow read: if isSignedIn() && (isUser(userId) || isRole('Core'));
+      // Users can update their own profile. Core team can update any profile (e.g., to change role).
+      allow update: if isSignedIn() && (isUser(userId) || isRole('Core'));
+      // Only Core team can delete users.
+      allow delete: if isSignedIn() && isRole('Core');
+    }
+
+    // TEAMS
+    match /teams/{teamId} {
+      // All signed-in users can read team data.
+      allow read: if isSignedIn();
+      // Only Core team can create, update, or delete teams.
+      allow write: if isSignedIn() && isRole('Core');
+    }
+
+    // TASKS
+    match /tasks/{taskId} {
+      // Any signed in user can read tasks. Further filtering happens client-side.
+      allow read: if isSignedIn();
+
+      // Creating tasks: Core, Semi-core, and Heads can create.
+      allow create: if isSignedIn() && (isRole('Core') || isRole('Semi-core') || isRole('Head'));
+
+      // Updating tasks: 
+      // Core/Semi-core/Heads can update any task in their realm of control.
+      // Volunteers can only update the status of tasks assigned to them.
+      allow update: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') ||
+        (isRole('Head') && isTeamMember(resource.data.teamId)) ||
+        (isRole('Volunteer') && isUser(resource.data.assignee.uid) && request.resource.data.keys().hasOnly(['status', 'updatedAt']))
+      );
+
+      // Deleting tasks: Only Core, Semi-core, and Heads of the respective team can delete.
+      allow delete: if isSignedIn() && (isRole('Core') || isRole('Semi-core') || (isRole('Head') && isTeamMember(resource.data.teamId)));
+    }
+
+    // FILES
+    match /files/{fileId} {
+       // Any signed in user can read file metadata.
+      allow read: if isSignedIn();
+      // Any signed-in user can create (upload) a file.
+      allow create: if isSignedIn();
+      // Only Core/Semi-core or the user who uploaded the file can delete it.
+      allow delete: if isSignedIn() && (isRole('Core') || isRole('Semi-core') || isUser(resource.data.uploadedBy));
+      // No updates to file metadata allowed for now to keep it simple.
+      allow update: if false;
+    }
+  }
+}

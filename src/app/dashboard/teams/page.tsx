@@ -25,18 +25,21 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import type { Team } from '@/lib/types';
-import { useAuth } from '@/context/auth-context';
-
-const teams: Team[] = [
-  { id: '1', name: 'Core Team', memberCount: 5, description: 'Oversees all committee activities and planning.' },
-  { id: '2', name: 'Media Team', memberCount: 8, description: 'Handles social media, posters, and marketing.' },
-  { id: '3', name: 'Technical Team', memberCount: 12, description: 'Manages website, apps, and technical workshops.' },
-  { id: '4', name: 'Events Team', memberCount: 10, description: 'Organizes and executes event logistics.' },
-];
+import { useAuth, useCollection } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useMemo } from 'react';
 
 export default function TeamsPage() {
-  const { user } = useAuth();
-  const isCoreTeam = user?.role === 'core-team';
+  const { db, userProfile } = useAuth();
+  const isCoreTeam = userProfile?.role === 'Core';
+
+  const teamsQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'teams');
+  }, [db]);
+  
+  const { data: teams, loading } = useCollection<Team>(teamsQuery);
 
   return (
     <Card className="shadow-sm">
@@ -63,36 +66,54 @@ export default function TeamsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {teams.map((team) => (
-              <TableRow key={team.id}>
-                <TableCell className="font-medium">
-                  <div className='flex items-center gap-2'>
-                    {team.name}
-                    {team.name === 'Core Team' && <Badge>Admin</Badge>}
-                  </div>
-                </TableCell>
-                <TableCell className='text-muted-foreground max-w-sm truncate'>{team.description}</TableCell>
-                <TableCell className="text-center">{team.memberCount}</TableCell>
-                {isCoreTeam && (
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Manage Members</DropdownMenuItem>
-                        <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+            {loading ? (
+              Array.from({length: 4}).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                  <TableCell className="text-center"><Skeleton className="h-5 w-10 mx-auto" /></TableCell>
+                  {isCoreTeam && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
+                </TableRow>
+              ))
+            ) : (
+              teams?.map((team) => (
+                <TableRow key={team.id}>
+                  <TableCell className="font-medium">
+                    <div className='flex items-center gap-2'>
+                      {team.name}
+                      {team.name === 'Core' && <Badge>Admin</Badge>}
+                    </div>
                   </TableCell>
-                )}
-              </TableRow>
-            ))}
+                  <TableCell className='text-muted-foreground max-w-sm truncate'>{team.description}</TableCell>
+                  <TableCell className="text-center">{team.members?.length || 0}</TableCell>
+                  {isCoreTeam && (
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          <DropdownMenuItem>Manage Members</DropdownMenuItem>
+                          <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+            )}
+            {!loading && teams?.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={isCoreTeam ? 4 : 3} className="h-24 text-center">
+                        No teams found.
+                    </TableCell>
+                </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>

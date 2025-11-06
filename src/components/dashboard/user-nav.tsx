@@ -1,3 +1,4 @@
+'use client';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -9,28 +10,39 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
-import Link from "next/link"
+import { useAuth } from "@/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function UserNav() {
-    const userAvatar = PlaceHolderImages.find(p => p.id === 'user-1');
+  const { user, userProfile, signOut } = useAuth();
+  
+  if (!user || !userProfile) {
+    return <Skeleton className="h-9 w-9 rounded-full" />
+  }
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('');
+  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            {userAvatar && <AvatarImage src={userAvatar.imageUrl} alt="User Avatar" data-ai-hint={userAvatar.imageHint}/>}
-            <AvatarFallback>SN</AvatarFallback>
+            {userProfile.photoURL && <AvatarImage src={userProfile.photoURL} alt={userProfile.displayName || 'User Avatar'} />}
+            <AvatarFallback>{userProfile.displayName ? getInitials(userProfile.displayName) : 'U'}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Sarvesh Nakhale</p>
+            <p className="text-sm font-medium leading-none">{userProfile.displayName || 'User'}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              core-team@ieee.org
+              {user.email}
+            </p>
+             <p className="text-xs leading-none text-muted-foreground pt-1">
+              Role: <span className="font-semibold">{userProfile.role}</span>
             </p>
           </div>
         </DropdownMenuLabel>
@@ -44,11 +56,9 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <Link href="/login">
-            <DropdownMenuItem>
-                Log out
-            </DropdownMenuItem>
-        </Link>
+        <DropdownMenuItem onClick={signOut}>
+            Log out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
