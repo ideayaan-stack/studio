@@ -32,7 +32,7 @@ import { useMemo, useState } from 'react';
 import { AddUserDialog } from '@/components/dashboard/add-user-dialog';
 
 export default function TeamsPage() {
-  const { db, userProfile, loading: authLoading } = useAuth();
+  const { db, userProfile, loading: authLoading, isCoreAdmin } = useAuth();
   const [isAddUserDialogOpen, setAddUserDialogOpen] = useState(false);
 
   const teamsQuery = useMemo(() => {
@@ -43,7 +43,9 @@ export default function TeamsPage() {
   const { data: teams, loading: teamsLoading } = useCollection<Team>(teamsQuery);
   
   const isLoading = authLoading || teamsLoading;
-  const isCoreTeam = userProfile?.role === 'Core';
+  
+  // Use the direct isCoreAdmin flag for instant UI updates
+  const canManage = isCoreAdmin || userProfile?.role === 'Core';
 
   return (
     <>
@@ -59,7 +61,7 @@ export default function TeamsPage() {
               <Skeleton className="h-9 w-24" />
               <Skeleton className="h-9 w-28" />
             </>
-          ) : isCoreTeam ? (
+          ) : canManage ? (
             <>
               <Button size="sm" className="gap-1" onClick={() => setAddUserDialogOpen(true)}>
                 <Users className="h-4 w-4" />
@@ -80,7 +82,7 @@ export default function TeamsPage() {
               <TableHead>Team Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-center">Members</TableHead>
-              {isCoreTeam && <TableHead className="text-right">Actions</TableHead>}
+              {canManage && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -90,7 +92,7 @@ export default function TeamsPage() {
                   <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-full max-w-sm" /></TableCell>
                   <TableCell className="text-center"><Skeleton className="h-5 w-10 mx-auto" /></TableCell>
-                  {isCoreTeam && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
+                  {canManage && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
                 </TableRow>
               ))
             ) : (
@@ -104,7 +106,7 @@ export default function TeamsPage() {
                   </TableCell>
                   <TableCell className='text-muted-foreground max-w-sm truncate'>{team.description}</TableCell>
                   <TableCell className="text-center">{team.members?.length || 0}</TableCell>
-                  {isCoreTeam && (
+                  {canManage && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -127,7 +129,7 @@ export default function TeamsPage() {
             )}
             {!isLoading && teams?.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={isCoreTeam ? 4 : 3} className="h-24 text-center">
+                    <TableCell colSpan={canManage ? 4 : 3} className="h-24 text-center">
                         No teams found.
                     </TableCell>
                 </TableRow>
@@ -136,7 +138,7 @@ export default function TeamsPage() {
         </Table>
       </CardContent>
     </Card>
-    {isCoreTeam && (
+    {canManage && (
       <AddUserDialog 
         isOpen={isAddUserDialogOpen} 
         setIsOpen={setAddUserDialogOpen} 
