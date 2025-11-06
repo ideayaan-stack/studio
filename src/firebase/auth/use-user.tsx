@@ -79,9 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [auth]);
 
   const createUser = async (email: string, password: string, displayName: string, role: Role, teamId?: string) => {
-    // Check if the user already exists
-    const userDocRef = doc(db, 'users'); // This seems wrong, should query by email
-    
     const userCredential = await firebaseCreateUser(auth, email, password);
     const newUser = userCredential.user;
     
