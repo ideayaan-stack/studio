@@ -64,8 +64,8 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
 
   const onSubmit: SubmitHandler<AddUserInput> = async (data) => {
     setIsLoading(true);
-    // Ensure teamId is not sent for Core members
-    const finalTeamId = data.role === 'Core' ? '' : data.teamId;
+    // Ensure teamId is not sent for Core members, and handle "unassigned" value
+    const finalTeamId = data.role === 'Core' || data.teamId === 'unassigned' ? '' : data.teamId;
 
     try {
       await createUser(data.email, data.password, data.displayName, data.role, finalTeamId);
@@ -134,12 +134,12 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
 
           <div className={cn("space-y-2 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-50 pointer-events-none')}>
               <Label htmlFor="teamId">Team (Optional for non-Core)</Label>
-              <Select onValueChange={(value) => setValue('teamId', value)} defaultValue="">
+              <Select onValueChange={(value) => setValue('teamId', value)} defaultValue="unassigned">
                   <SelectTrigger>
                       <SelectValue placeholder="Select a team" />
                   </SelectTrigger>
                   <SelectContent>
-                      <SelectItem value="">No Team</SelectItem>
+                      <SelectItem value="unassigned">No Team</SelectItem>
                       {teams.filter(team => team.name !== 'Core').map(team => (
                           <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
                       ))}
