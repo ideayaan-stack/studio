@@ -24,28 +24,35 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import type { Team } from '@/lib/types';
+import type { Team, UserProfile } from '@/lib/types';
 import { useAuth, useCollection } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo, useState } from 'react';
 import { AddUserDialog } from '@/components/dashboard/add-user-dialog';
+import { CreateTeamDialog } from '@/components/dashboard/create-team-dialog';
 
 export default function TeamsPage() {
-  const { db, userProfile, loading: authLoading, isCoreAdmin } = useAuth();
+  const { db, userProfile, loading: authLoading } = useAuth();
   const [isAddUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  const [isCreateTeamDialogOpen, setCreateTeamDialogOpen] = useState(false);
 
   const teamsQuery = useMemo(() => {
     if (!db) return null;
     return collection(db, 'teams');
   }, [db]);
   
+  const usersQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
+
   const { data: teams, loading: teamsLoading } = useCollection<Team>(teamsQuery);
+  const { data: users, loading: usersLoading } = useCollection<UserProfile>(usersQuery);
   
-  const isLoading = authLoading || teamsLoading;
+  const isLoading = authLoading || teamsLoading || usersLoading;
   
-  // Use the direct isCoreAdmin flag for instant UI updates
-  const canManage = isCoreAdmin || userProfile?.role === 'Core';
+  const canManage = userProfile?.role === 'Core';
 
   return (
     <>
@@ -67,7 +74,7 @@ export default function TeamsPage() {
                 <Users className="h-4 w-4" />
                 Add User
               </Button>
-              <Button size="sm" className="gap-1">
+              <Button size="sm" className="gap-1" onClick={() => setCreateTeamDialogOpen(true)}>
                 <PlusCircle className="h-4 w-4" />
                 Create Team
               </Button>
@@ -81,6 +88,7 @@ export default function TeamsPage() {
             <TableRow>
               <TableHead>Team Name</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Team Head</TableHead>
               <TableHead className="text-center">Members</TableHead>
               {canManage && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
@@ -91,12 +99,15 @@ export default function TeamsPage() {
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-full max-w-sm" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                   <TableCell className="text-center"><Skeleton className="h-5 w-10 mx-auto" /></TableCell>
                   {canManage && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
                 </TableRow>
               ))
             ) : (
-              teams?.map((team) => (
+              teams?.map((team) => {
+                const headUser = users?.find(u => u.uid === team.head);
+                return (
                 <TableRow key={team.id}>
                   <TableCell className="font-medium">
                     <div className='flex items-center gap-2'>
@@ -105,6 +116,7 @@ export default function TeamsPage() {
                     </div>
                   </TableCell>
                   <TableCell className='text-muted-foreground max-w-sm truncate'>{team.description}</TableCell>
+                   <TableCell className='text-muted-foreground'>{headUser?.displayName || 'N/A'}</TableCell>
                   <TableCell className="text-center">{team.members?.length || 0}</TableCell>
                   {canManage && (
                     <TableCell className="text-right">
@@ -125,11 +137,11 @@ export default function TeamsPage() {
                     </TableCell>
                   )}
                 </TableRow>
-              ))
+              )})
             )}
             {!isLoading && teams?.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={canManage ? 4 : 3} className="h-24 text-center">
+                    <TableCell colSpan={canManage ? 5 : 4} className="h-24 text-center">
                         No teams found.
                     </TableCell>
                 </TableRow>
@@ -139,11 +151,18 @@ export default function TeamsPage() {
       </CardContent>
     </Card>
     {canManage && (
-      <AddUserDialog 
-        isOpen={isAddUserDialogOpen} 
-        setIsOpen={setAddUserDialogOpen} 
-        teams={teams || []} 
-      />
+      <>
+        <AddUserDialog 
+          isOpen={isAddUserDialogOpen} 
+          setIsOpen={setAddUserDialogOpen} 
+          teams={teams || []} 
+        />
+        <CreateTeamDialog
+          isOpen={isCreateTeamDialogOpen}
+          setIsOpen={setCreateTeamDialogOpen}
+          users={users || []}
+        />
+      </>
     )}
     </>
   );
