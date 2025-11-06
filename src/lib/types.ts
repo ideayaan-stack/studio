@@ -1,5 +1,14 @@
 import type { LucideIcon } from "lucide-react";
 
+export type Role = 'core-team' | 'team-member' | 'viewer';
+
+export type User = {
+  name: string;
+  email: string;
+  role: Role;
+  teamId?: string; // Optional: A user might not be in a team
+};
+
 export type NavItem = {
   href: string;
   label: string;
@@ -36,6 +45,7 @@ export type FileItem = {
   uploadedBy: string;
   previewUrl: string;
   previewHint: string;
+  teamId: string;
 };
 
 export type Message = {

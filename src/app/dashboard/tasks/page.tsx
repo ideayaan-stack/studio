@@ -1,9 +1,12 @@
+'use client';
 import { AiTaskSuggester } from '@/components/dashboard/ai-task-suggester';
 import { TaskCard } from '@/components/dashboard/task-card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { Task } from '@/lib/types';
 import { PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/auth-context';
+import { useMemo } from 'react';
 
 const tasks: Task[] = [
   { id: '1', title: 'Design event poster', description: 'Create a visually appealing poster for social media.', status: 'Completed', deadline: '2024-10-25', teamId: '2', assignee: { name: 'Alice Johnson', avatarUrl: PlaceHolderImages.find(p => p.id === 'user-1')?.imageUrl!, avatarHint: PlaceHolderImages.find(p => p.id === 'user-1')?.imageHint! } },
@@ -14,13 +17,20 @@ const tasks: Task[] = [
   { id: '6', title: 'Schedule social media posts', description: 'Plan and schedule posts for the next 2 weeks.', status: 'Pending', deadline: '2024-11-01', teamId: '2', assignee: { name: 'Alice Johnson', avatarUrl: PlaceHolderImages.find(p => p.id === 'user-1')?.imageUrl!, avatarHint: PlaceHolderImages.find(p => p.id === 'user-1')?.imageHint! } },
 ];
 
-const columns: { title: Task['status']; tasks: Task[] }[] = [
-    { title: 'Pending', tasks: tasks.filter((t) => t.status === 'Pending') },
-    { title: 'In Progress', tasks: tasks.filter((t) => t.status === 'In Progress') },
-    { title: 'Completed', tasks: tasks.filter((t) => t.status === 'Completed') },
-];
-
 export default function TasksPage() {
+  const { user } = useAuth();
+  const isCoreTeam = user?.role === 'core-team';
+
+  const displayedTasks = useMemo(() => {
+    return isCoreTeam ? tasks : tasks.filter(task => task.teamId === user?.teamId);
+  }, [isCoreTeam, user?.teamId]);
+
+  const columns: { title: Task['status']; tasks: Task[] }[] = useMemo(() => [
+      { title: 'Pending', tasks: displayedTasks.filter((t) => t.status === 'Pending') },
+      { title: 'In Progress', tasks: displayedTasks.filter((t) => t.status === 'In Progress') },
+      { title: 'Completed', tasks: displayedTasks.filter((t) => t.status === 'Completed') },
+  ], [displayedTasks]);
+
   return (
     <div className="flex flex-col h-full">
         <div className="flex items-center justify-between mb-6">
@@ -28,13 +38,15 @@ export default function TasksPage() {
                 <h1 className="text-2xl font-headline font-bold">To-Do Board</h1>
                 <p className="text-muted-foreground">Organize and track tasks across all teams.</p>
             </div>
-            <div className='flex gap-2'>
-                <Button variant="outline">
-                    <PlusCircle className='mr-2 h-4 w-4'/>
-                    Add Task
-                </Button>
-                <AiTaskSuggester />
-            </div>
+            {isCoreTeam && (
+              <div className='flex gap-2'>
+                  <Button variant="outline">
+                      <PlusCircle className='mr-2 h-4 w-4'/>
+                      Add Task
+                  </Button>
+                  <AiTaskSuggester />
+              </div>
+            )}
         </div>
 
         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">

@@ -1,3 +1,4 @@
+'use client';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
-import { Lightbulb, Users } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -18,8 +19,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/context/auth-context";
+import { useRouter } from "next/navigation";
+import type { Role } from "@/lib/types";
+import { useState } from "react";
 
 export default function LoginPage() {
+  const { login } = useAuth();
+  const router = useRouter();
+  const [role, setRole] = useState<Role>('team-member');
+
+  const handleLogin = () => {
+    // In a real app, you'd get the user from an API call
+    const user = {
+      name: 'Sarvesh Nakhale',
+      email: 'core-team@ieee.org',
+      role: role,
+      teamId: role === 'core-team' ? '1' : '2', // Example teamId
+    };
+    login(user);
+    router.push('/dashboard');
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md mx-auto shadow-xl">
@@ -36,7 +57,7 @@ export default function LoginPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="m@example.com" />
+            <Input id="email" type="email" placeholder="m@example.com" defaultValue="core-team@ieee.org" />
           </div>
           <div className="space-y-2">
             <div className="flex items-center">
@@ -48,11 +69,11 @@ export default function LoginPage() {
                 Forgot your password?
               </Link>
             </div>
-            <Input id="password" type="password" />
+            <Input id="password" type="password" defaultValue="password" />
           </div>
            <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select>
+              <Select onValueChange={(value: Role) => setRole(value)} defaultValue={role}>
                 <SelectTrigger id="role">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
@@ -63,9 +84,7 @@ export default function LoginPage() {
                 </SelectContent>
               </Select>
             </div>
-          <Link href="/dashboard" className="w-full">
-            <Button className="w-full">Login</Button>
-          </Link>
+            <Button className="w-full" onClick={handleLogin}>Login</Button>
           <Separator className="my-4" />
           <div className="text-center text-sm text-muted-foreground">
             Ideayaan is an internal tool. Public signup is not available.

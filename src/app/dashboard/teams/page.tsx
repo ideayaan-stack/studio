@@ -1,3 +1,4 @@
+'use client';
 import {
   Table,
   TableBody,
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import type { Team } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
 
 const teams: Team[] = [
   { id: '1', name: 'Core Team', memberCount: 5, description: 'Oversees all committee activities and planning.' },
@@ -33,6 +35,9 @@ const teams: Team[] = [
 ];
 
 export default function TeamsPage() {
+  const { user } = useAuth();
+  const isCoreTeam = user?.role === 'core-team';
+
   return (
     <Card className="shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -40,10 +45,12 @@ export default function TeamsPage() {
           <CardTitle className='font-headline'>Teams</CardTitle>
           <CardDescription>Manage your committee's teams and members.</CardDescription>
         </div>
-        <Button size="sm" className="gap-1">
-          <PlusCircle className="h-4 w-4" />
-          Create Team
-        </Button>
+        {isCoreTeam && (
+          <Button size="sm" className="gap-1">
+            <PlusCircle className="h-4 w-4" />
+            Create Team
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         <Table>
@@ -52,7 +59,7 @@ export default function TeamsPage() {
               <TableHead>Team Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-center">Members</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {isCoreTeam && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -66,22 +73,24 @@ export default function TeamsPage() {
                 </TableCell>
                 <TableCell className='text-muted-foreground max-w-sm truncate'>{team.description}</TableCell>
                 <TableCell className="text-center">{team.memberCount}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button aria-haspopup="true" size="icon" variant="ghost">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Toggle menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>Edit</DropdownMenuItem>
-                      <DropdownMenuItem>Manage Members</DropdownMenuItem>
-                      <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+                {isCoreTeam && (
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem>Manage Members</DropdownMenuItem>
+                        <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
