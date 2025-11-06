@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function UserNav() {
   const { user, userProfile, signOut, loading } = useAuth();
   
-  if (loading || !user || !userProfile) {
+  if (loading && !user) {
     return (
         <div className="flex items-center gap-2">
             <Skeleton className="h-9 w-9 rounded-full" />
@@ -28,7 +28,12 @@ export function UserNav() {
     )
   }
 
-  const getInitials = (name: string) => {
+  if (!user) {
+    return null;
+  }
+
+  const getInitials = (name?: string | null) => {
+    if (!name) return 'U';
     return name.split(' ').map(n => n[0]).join('');
   }
 
@@ -37,21 +42,23 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            {userProfile.photoURL && <AvatarImage src={userProfile.photoURL} alt={userProfile.displayName || 'User Avatar'} />}
-            <AvatarFallback>{userProfile.displayName ? getInitials(userProfile.displayName) : 'U'}</AvatarFallback>
+            {userProfile?.photoURL && <AvatarImage src={userProfile.photoURL} alt={userProfile.displayName || 'User Avatar'} />}
+            <AvatarFallback>{getInitials(userProfile?.displayName)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{userProfile.displayName || 'User'}</p>
+            <p className="text-sm font-medium leading-none">{userProfile?.displayName || 'User'}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
-             <p className="text-xs leading-none text-muted-foreground pt-1">
-              Role: <span className="font-semibold">{userProfile.role}</span>
-            </p>
+             {userProfile?.role && (
+              <p className="text-xs leading-none text-muted-foreground pt-1">
+                Role: <span className="font-semibold">{userProfile.role}</span>
+              </p>
+             )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
