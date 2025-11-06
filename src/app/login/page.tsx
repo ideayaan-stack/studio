@@ -17,13 +17,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FirebaseError } from "firebase/app";
 import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Role, Team } from "@/lib/types";
-
-const roles: Role[] = ['Core', 'Semi-core', 'Head', 'Volunteer'];
 
 export default function LoginPage() {
-  const { signIn, user } = useAuth();
+  const { signIn, user, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -67,12 +63,18 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    // Redirect only if user is authenticated and not already on the dashboard
-    if (user && window.location.pathname !== '/dashboard') {
+    if (user) {
       router.push('/dashboard');
     }
   }, [user, router]);
-
+  
+  if (user || loading) {
+    return (
+        <div className="flex min-h-screen items-center justify-center">
+            <Loader2 className="animate-spin h-10 w-10 text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">

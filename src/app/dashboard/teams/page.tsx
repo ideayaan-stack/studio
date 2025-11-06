@@ -42,9 +42,7 @@ export default function TeamsPage() {
   }, [db]);
   
   const { data: teams, loading } = useCollection<Team>(teamsQuery);
-  const { data: allUsers, loading: usersLoading } = useCollection(useMemo(() => db ? collection(db, 'users') : null, [db]));
-
-
+  
   return (
     <>
     <Card className="shadow-sm">
