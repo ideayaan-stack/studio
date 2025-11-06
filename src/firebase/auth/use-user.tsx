@@ -10,18 +10,17 @@ import {
 } from 'react';
 import {
   onAuthStateChanged,
-  createUserWithEmailAndPassword as firebaseCreateUser,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { initializeFirebase } from '..';
 import { UserProfile, Role, Team } from '@/lib/types';
 import { useDoc } from '../firestore/use-collection';
 import { useRouter } from 'next/navigation';
+import { createUserAction } from '../actions/user-actions';
 
-// --- Hardcoded Admin Email ---
 const ADMIN_EMAIL = 'sarvy2503@gmail.com';
 
 interface AuthContextType {
@@ -29,7 +28,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   db: ReturnType<typeof initializeFirebase>['db'];
-  createUser: (email: string, password: string, displayName: string, role: Role, teamId?: string) => Promise<any>;
+  createUser: (email: string, password: string, displayName: string, role: Role, teamId?: string) => Promise<{ error?: string }>;
   signIn: typeof signInWithEmailAndPassword;
   signOut: () => Promise<void>;
   isCoreAdmin: boolean;
@@ -50,19 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const { data: userProfileFromDb, loading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
-  // --- DERIVED ADMIN STATE ---
   const isCoreAdmin = user?.email === ADMIN_EMAIL;
 
-  // Combine DB profile with immediate admin override
   const userProfile = useMemo(() => {
     if (isCoreAdmin) {
-      // If user is the hardcoded admin, immediately give them a Core profile
       return {
-        uid: user?.uid || 'admin',
+        uid: user?.uid || 'admin-uid',
         email: user?.email,
         displayName: userProfileFromDb?.displayName || user?.displayName || 'Admin',
         photoURL: userProfileFromDb?.photoURL || user?.photoURL,
         role: 'Core' as Role,
+        teamId: '',
       };
     }
     return userProfileFromDb;
@@ -77,23 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
   }, [auth]);
-
+  
   const createUser = async (email: string, password: string, displayName: string, role: Role, teamId?: string) => {
-    const userCredential = await firebaseCreateUser(auth, email, password);
-    const newUser = userCredential.user;
-    
-    const newUserDocRef = doc(db, 'users', newUser.uid);
-    const newUserProfile: Omit<UserProfile, 'id'> = {
-      uid: newUser.uid,
-      email: newUser.email,
-      displayName: displayName || newUser.email?.split('@')[0] || 'New User',
-      photoURL: newUser.photoURL,
-      role: role,
-      teamId: role === 'Core' ? '' : teamId || '',
-    };
-    await setDoc(newUserDocRef, newUserProfile);
-
-    return userCredential;
+    // This is now a server action, so it doesn't affect client-side auth state
+    return createUserAction({ email, password, displayName, role, teamId });
   }
 
   const signOut = async () => {
@@ -104,12 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     user,
     userProfile: userProfile || null,
-    loading: loading || (profileLoading && !isCoreAdmin), // Don't show loading for admin if we already have the user object
+    loading: loading || (profileLoading && !isCoreAdmin),
     db,
     createUser,
     signIn: (email, password) => signInWithEmailAndPassword(auth, email, password),
     signOut,
-    isCoreAdmin, // Expose this for quick checks
+    isCoreAdmin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

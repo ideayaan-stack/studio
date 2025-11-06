@@ -88,6 +88,7 @@ export function CreateTeamDialog({ isOpen, setIsOpen, users }: CreateTeamDialogP
                     <SelectValue placeholder="Select a user to lead the team" />
                 </SelectTrigger>
                 <SelectContent>
+                    <SelectItem value="">No Head</SelectItem>
                     {users.map(user => (
                         <SelectItem key={user.uid} value={user.uid}>{user.displayName}</SelectItem>
                     ))}

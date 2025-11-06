@@ -64,11 +64,14 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
 
   const onSubmit: SubmitHandler<AddUserInput> = async (data) => {
     setIsLoading(true);
-    // Ensure teamId is not sent for Core members, and handle "unassigned" value
     const finalTeamId = data.role === 'Core' || data.teamId === 'unassigned' ? '' : data.teamId;
 
     try {
-      await createUser(data.email, data.password, data.displayName, data.role, finalTeamId);
+      // This now calls the server-side user creation, which doesn't log the admin out.
+      const result = await createUser(data.email, data.password, data.displayName, data.role, finalTeamId);
+      if (result?.error) {
+        throw new Error(result.error);
+      }
       toast({
         title: 'User Created',
         description: `${data.displayName} has been added to the system.`,
@@ -133,7 +136,7 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
           </div>
 
           <div className={cn("space-y-2 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-50 pointer-events-none')}>
-              <Label htmlFor="teamId">Team (Optional for non-Core)</Label>
+              <Label htmlFor="teamId">Team</Label>
               <Select onValueChange={(value) => setValue('teamId', value)} defaultValue="unassigned">
                   <SelectTrigger>
                       <SelectValue placeholder="Select a team" />
