@@ -14,10 +14,18 @@ import { useAuth } from "@/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function UserNav() {
-  const { user, userProfile, signOut } = useAuth();
+  const { user, userProfile, signOut, loading } = useAuth();
   
-  if (!user || !userProfile) {
-    return <Skeleton className="h-9 w-9 rounded-full" />
+  if (loading || !user || !userProfile) {
+    return (
+        <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <div className="space-y-1">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-3 w-28" />
+            </div>
+      </div>
+    )
   }
 
   const getInitials = (name: string) => {
