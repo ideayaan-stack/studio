@@ -17,6 +17,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FirebaseError } from "firebase/app";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Role, Team } from "@/lib/types";
+
+const roles: Role[] = ['Core', 'Semi-core', 'Head', 'Volunteer'];
 
 export default function LoginPage() {
   const { signIn, user } = useAuth();
@@ -38,6 +42,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signIn(email, password);
+      router.push('/dashboard');
     } catch (error) {
       const firebaseError = error as FirebaseError;
       let title = "Authentication Failed";
@@ -62,7 +67,8 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    if (user) {
+    // Redirect only if user is authenticated and not already on the dashboard
+    if (user && window.location.pathname !== '/dashboard') {
       router.push('/dashboard');
     }
   }, [user, router]);

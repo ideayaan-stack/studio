@@ -19,6 +19,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { initializeFirebase } from '..';
 import { UserProfile, Role } from '@/lib/types';
 import { useDoc } from '../firestore/use-collection';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { auth, db } = initializeFirebase();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const userProfileRef = useMemo(() => {
     if (!db || !user) return null;
@@ -54,9 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [auth]);
 
   const createUser = async (email: string, password: string, displayName: string, role: Role, teamId?: string) => {
-    // This function should only be called by a Core team member.
-    // We are simulating a backend call that creates the user.
-    // In a real production app, this would be a Cloud Function.
     const userCredential = await firebaseCreateUser(auth, email, password);
     const user = userCredential.user;
     
@@ -71,14 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     await setDoc(userDocRef, newUserProfile);
 
-    // If a teamId is provided, you might want to add the user to the team's member list here.
-    // This part is omitted for simplicity but would be a good addition.
-
     return userCredential;
   }
 
   const signOut = async () => {
     await firebaseSignOut(auth);
+    router.push('/login');
   };
 
   const value = {
