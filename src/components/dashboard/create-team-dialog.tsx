@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useActionState, useFormStatus } from 'react';
+import { useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import {
   Dialog,
   DialogContent,
