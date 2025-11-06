@@ -20,6 +20,7 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: 'Ideayaan - Event & Team Management',
   description: 'A role-based event and team management system for college committees.',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({

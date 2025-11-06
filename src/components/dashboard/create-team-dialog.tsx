@@ -69,12 +69,12 @@ export function CreateTeamDialog({ isOpen, setIsOpen, users }: CreateTeamDialogP
             <PlusCircle /> Create New Team
           </DialogTitle>
           <DialogDescription>
-            Set up a new team and assign a team head.
+            Set up a new team. You can assign a team head later.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="grid gap-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Team Name</Label>
+            <Label htmlFor="name">Team Name *</Label>
             <Input id="name" name="name" placeholder="e.g., Media Committee" />
           </div>
           <div className="space-y-2">
@@ -82,7 +82,7 @@ export function CreateTeamDialog({ isOpen, setIsOpen, users }: CreateTeamDialogP
             <Textarea id="description" name="description" placeholder="What is the purpose of this team?" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="head">Team Head</Label>
+            <Label htmlFor="head">Team Head (Optional)</Label>
             <Select name="head">
                 <SelectTrigger>
                     <SelectValue placeholder="Select a user to lead the team" />

@@ -2,7 +2,7 @@
 
 import { suggestTasks as suggestTasksFlow, SuggestTasksInput } from '@/ai/flows/ai-task-suggester';
 import { initializeFirebase } from '@/firebase';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 export type SuggestTasksState = {
   message: string | null;
@@ -35,21 +35,27 @@ export type CreateTeamState = {
 
 export async function createTeamAction(prevState: CreateTeamState, formData: FormData): Promise<CreateTeamState> {
     const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
-    const head = formData.get('head') as string;
+    const description = (formData.get('description') as string) || '';
+    const head = (formData.get('head') as string) || '';
 
-    if (!name || !description || !head) {
-        return { message: 'All fields are required.', error: true };
+    if (!name) {
+        return { message: 'Team name is required.', error: true };
     }
 
     try {
         const { db } = initializeFirebase();
-        await addDoc(collection(db, 'teams'), {
+        const teamData: {name: string, description: string, members: string[], head?: string} = {
             name,
             description,
-            head,
-            members: [head], // The head is also a member
-        });
+            members: [],
+        };
+
+        if (head) {
+            teamData.head = head;
+            teamData.members.push(head);
+        }
+
+        await addDoc(collection(db, 'teams'), teamData);
         return { message: `Team "${name}" created successfully.`, error: false };
     } catch (error) {
         console.error('Create Team Error:', error);

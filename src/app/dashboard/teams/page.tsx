@@ -142,7 +142,7 @@ export default function TeamsPage() {
             {!isLoading && teams?.length === 0 && (
                 <TableRow>
                     <TableCell colSpan={canManage ? 5 : 4} className="h-24 text-center">
-                        No teams found.
+                        No teams found. Get started by creating a team.
                     </TableCell>
                 </TableRow>
             )}
