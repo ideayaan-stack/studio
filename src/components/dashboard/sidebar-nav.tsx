@@ -14,7 +14,6 @@ import {
   CheckSquare,
   Folder,
   MessageSquare,
-  Briefcase,
 } from 'lucide-react';
 
 const navItems: NavItem[] = [

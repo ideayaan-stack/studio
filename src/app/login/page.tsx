@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
-import { Briefcase, Users } from "lucide-react";
+import { Lightbulb, Users } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -25,7 +25,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md mx-auto shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Briefcase className="h-8 w-8 text-primary" />
+            <Lightbulb className="h-8 w-8 text-primary" />
             <h1 className="text-3xl font-headline font-bold text-primary">Ideayaan</h1>
           </div>
           <CardTitle className="text-2xl font-headline">Welcome Back</CardTitle>
