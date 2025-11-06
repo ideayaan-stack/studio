@@ -15,7 +15,7 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { initializeFirebase } from '..';
 import { UserProfile, Role } from '@/lib/types';
 import { useDoc } from '../firestore/use-collection';
@@ -25,7 +25,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   db: ReturnType<typeof initializeFirebase>['db'];
-  signUp: (email: string, password: string, role: Role) => Promise<any>;
+  signUp: (email: string, password: string, role: Role, teamId?: string) => Promise<any>;
   signIn: typeof signInWithEmailAndPassword;
   signOut: () => Promise<void>;
 }
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [auth]);
 
-  const signUp = async (email: string, password: string, role: Role) => {
+  const signUp = async (email: string, password: string, role: Role, teamId?: string) => {
     const userCredential = await firebaseCreateUser(auth, email, password);
     const user = userCredential.user;
     
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       displayName: user.displayName || user.email?.split('@')[0],
       photoURL: user.photoURL,
       role: role,
-      teamId: undefined,
+      teamId: teamId,
     };
     await setDoc(userDocRef, newUserProfile);
     setUser(user);
