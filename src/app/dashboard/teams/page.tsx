@@ -32,8 +32,7 @@ import { useMemo, useState } from 'react';
 import { AddUserDialog } from '@/components/dashboard/add-user-dialog';
 
 export default function TeamsPage() {
-  const { db, userProfile } = useAuth();
-  const isCoreTeam = userProfile?.role === 'Core';
+  const { db, userProfile, loading: authLoading } = useAuth();
   const [isAddUserDialogOpen, setAddUserDialogOpen] = useState(false);
 
   const teamsQuery = useMemo(() => {
@@ -41,8 +40,11 @@ export default function TeamsPage() {
     return collection(db, 'teams');
   }, [db]);
   
-  const { data: teams, loading } = useCollection<Team>(teamsQuery);
+  const { data: teams, loading: teamsLoading } = useCollection<Team>(teamsQuery);
   
+  const isLoading = authLoading || teamsLoading;
+  const isCoreTeam = userProfile?.role === 'Core';
+
   return (
     <>
     <Card className="shadow-sm">
@@ -51,18 +53,25 @@ export default function TeamsPage() {
           <CardTitle className='font-headline'>Teams</CardTitle>
           <CardDescription>Manage your committee's teams and members.</CardDescription>
         </div>
-        {isCoreTeam && (
-          <div className="flex gap-2">
-            <Button size="sm" className="gap-1" onClick={() => setAddUserDialogOpen(true)}>
-              <Users className="h-4 w-4" />
-              Add User
-            </Button>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-4 w-4" />
-              Create Team
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          {isLoading ? (
+            <>
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-9 w-28" />
+            </>
+          ) : isCoreTeam ? (
+            <>
+              <Button size="sm" className="gap-1" onClick={() => setAddUserDialogOpen(true)}>
+                <Users className="h-4 w-4" />
+                Add User
+              </Button>
+              <Button size="sm" className="gap-1">
+                <PlusCircle className="h-4 w-4" />
+                Create Team
+              </Button>
+            </>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -75,11 +84,11 @@ export default function TeamsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {isLoading ? (
               Array.from({length: 4}).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-full max-w-sm" /></TableCell>
                   <TableCell className="text-center"><Skeleton className="h-5 w-10 mx-auto" /></TableCell>
                   {isCoreTeam && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
                 </TableRow>
@@ -116,7 +125,7 @@ export default function TeamsPage() {
                 </TableRow>
               ))
             )}
-            {!loading && teams?.length === 0 && (
+            {!isLoading && teams?.length === 0 && (
                 <TableRow>
                     <TableCell colSpan={isCoreTeam ? 4 : 3} className="h-24 text-center">
                         No teams found.
