@@ -3,30 +3,19 @@
 // You do not need to edit this file.
 
 export const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID",
 };
 
-// Check if all required environment variables are set
-const requiredEnvVars = [
-  'NEXT_PUBLIC_FIREBASE_API_KEY',
-  'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-  'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
-  'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
-  'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-  'NEXT_PUBLIC_FIREBASE_APP_ID',
-];
-
-const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
-
-if (missingEnvVars.length > 0) {
-  console.warn(
-    `[Firebase] Missing environment variables: ${missingEnvVars.join(
-      ', '
-    )}. Please make sure to set them in your .env.local file.`
-  );
+// Check if all required environment variables are set, but only on the client side
+if (typeof window !== 'undefined') {
+    if (firebaseConfig.apiKey === 'YOUR_API_KEY') {
+        console.warn(
+            `[Firebase] Missing configuration. Please update src/firebase/config.ts with your Firebase project details.`
+        );
+    }
 }

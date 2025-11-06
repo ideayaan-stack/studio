@@ -1,5 +1,4 @@
 import type {NextConfig} from 'next';
-import 'dotenv/config';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -28,7 +27,7 @@ const nextConfig: NextConfig = {
         hostname: 'picsum.photos',
       }
     ]
-  }
+  },
 };
 
 export default nextConfig;
