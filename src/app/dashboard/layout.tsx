@@ -35,7 +35,7 @@ export default function DashboardLayout({
           <SidebarFooter>
              <SidebarMenu>
                   <SidebarMenuItem>
-                      <Link href="#" legacyBehavior passHref>
+                      <Link href="#">
                           <SidebarMenuButton tooltip="Settings">
                               <Settings />
                               <span>Settings</span>
