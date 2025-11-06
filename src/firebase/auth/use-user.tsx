@@ -15,7 +15,7 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { initializeFirebase } from '..';
 import { UserProfile, Role } from '@/lib/types';
 import { useDoc } from '../firestore/use-collection';
@@ -25,7 +25,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   db: ReturnType<typeof initializeFirebase>['db'];
-  createUser: (email: string, password: string, role: Role, teamId?: string, displayName?: string) => Promise<any>;
+  createUser: (email: string, password: string, displayName: string, role: Role, teamId?: string) => Promise<any>;
   signIn: typeof signInWithEmailAndPassword;
   signOut: () => Promise<void>;
 }
@@ -53,24 +53,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [auth]);
 
-  const createUser = async (email: string, password: string, role: Role, teamId?: string, displayName?: string) => {
-    // This function is intended to be called by an admin. It creates a new user and their profile.
-    // Note: Creating users this way requires special privileges. For client-side, you'd typically
-    // use a Cloud Function that internally uses the Firebase Admin SDK to create users.
-    // This is a simplified version for demonstration.
+  const createUser = async (email: string, password: string, displayName: string, role: Role, teamId?: string) => {
+    // This function should only be called by a Core team member.
+    // We are simulating a backend call that creates the user.
+    // In a real production app, this would be a Cloud Function.
     const userCredential = await firebaseCreateUser(auth, email, password);
     const user = userCredential.user;
     
     const userDocRef = doc(db, 'users', user.uid);
-    const newUserProfile: UserProfile = {
+    const newUserProfile: Omit<UserProfile, 'id'> = {
       uid: user.uid,
       email: user.email,
-      displayName: displayName || user.email?.split('@')[0],
+      displayName: displayName || user.email?.split('@')[0] || 'New User',
       photoURL: user.photoURL,
       role: role,
-      teamId: teamId,
+      teamId: teamId || '',
     };
     await setDoc(userDocRef, newUserProfile);
+
+    // If a teamId is provided, you might want to add the user to the team's member list here.
+    // This part is omitted for simplicity but would be a good addition.
+
     return userCredential;
   }
 

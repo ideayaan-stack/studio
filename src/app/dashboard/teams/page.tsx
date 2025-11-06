@@ -28,11 +28,13 @@ import type { Team } from '@/lib/types';
 import { useAuth, useCollection } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { AddUserDialog } from '@/components/dashboard/add-user-dialog';
 
 export default function TeamsPage() {
   const { db, userProfile } = useAuth();
   const isCoreTeam = userProfile?.role === 'Core';
+  const [isAddUserDialogOpen, setAddUserDialogOpen] = useState(false);
 
   const teamsQuery = useMemo(() => {
     if (!db) return null;
@@ -40,8 +42,11 @@ export default function TeamsPage() {
   }, [db]);
   
   const { data: teams, loading } = useCollection<Team>(teamsQuery);
+  const { data: allUsers, loading: usersLoading } = useCollection(useMemo(() => db ? collection(db, 'users') : null, [db]));
+
 
   return (
+    <>
     <Card className="shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
@@ -50,9 +55,9 @@ export default function TeamsPage() {
         </div>
         {isCoreTeam && (
           <div className="flex gap-2">
-            <Button size="sm" className="gap-1">
+            <Button size="sm" className="gap-1" onClick={() => setAddUserDialogOpen(true)}>
               <Users className="h-4 w-4" />
-              Manage Users
+              Add User
             </Button>
             <Button size="sm" className="gap-1">
               <PlusCircle className="h-4 w-4" />
@@ -124,5 +129,13 @@ export default function TeamsPage() {
         </Table>
       </CardContent>
     </Card>
+    {isCoreTeam && (
+      <AddUserDialog 
+        isOpen={isAddUserDialogOpen} 
+        setIsOpen={setAddUserDialogOpen} 
+        teams={teams || []} 
+      />
+    )}
+    </>
   );
 }

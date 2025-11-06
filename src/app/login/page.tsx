@@ -27,10 +27,17 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   const handleLogin = async () => {
+    if (!email || !password) {
+        toast({
+            variant: "destructive",
+            title: "Missing Fields",
+            description: "Please enter both email and password.",
+        });
+        return;
+    }
     setIsLoading(true);
     try {
       await signIn(email, password);
-      // On success, router will redirect via the useEffect below
     } catch (error) {
       const firebaseError = error as FirebaseError;
       let title = "Authentication Failed";
@@ -38,7 +45,10 @@ export default function LoginPage() {
 
       if (firebaseError.code === 'auth/user-not-found' || firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {
         title = "Invalid Credentials";
-        description = "The email or password you entered is incorrect.";
+        description = "The email or password you entered is incorrect. Please contact a Core team member if you need an account.";
+      } else if (firebaseError.code === 'auth/invalid-email') {
+        title = "Invalid Email";
+        description = "Please enter a valid email address.";
       }
 
       toast({
