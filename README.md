@@ -32,7 +32,7 @@ A comprehensive, role-based team management and collaboration platform built wit
 ### 1. Clone and Install
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/ideayaan-stack/studio
 cd studio
 npm install
 ```
