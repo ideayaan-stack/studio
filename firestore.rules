@@ -83,5 +83,29 @@ service cloud.firestore {
       // No updates to file metadata allowed for now to keep it simple.
       allow update: if false;
     }
+
+    // MESSAGES
+    match /messages/{messageId} {
+      // Users can read messages if they are part of the team or if it's the common chat
+      // Core/Semi-core can read all messages
+      allow read: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        resource.data.teamId == 'common' ||
+        isTeamMember(resource.data.teamId)
+      );
+      // Users can create messages if they are part of the team or if it's the common chat
+      // Core/Semi-core can create messages in any team
+      allow create: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        request.resource.data.teamId == 'common' ||
+        isTeamMember(request.resource.data.teamId)
+      );
+      // Only Core/Semi-core can delete messages
+      allow delete: if isSignedIn() && (isRole('Core') || isRole('Semi-core'));
+      // No updates to messages allowed
+      allow update: if false;
+    }
   }
 }

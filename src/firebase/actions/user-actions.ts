@@ -36,13 +36,15 @@ export async function createUserAction(params: CreateUserParams): Promise<{ erro
     });
 
     // 2. Create user profile in Firestore
+    // Core and Semi-core can be created without teams
+    // Head and Volunteer should have teams (but we allow empty for flexibility)
     const userProfileData = {
       uid: userRecord.uid,
       email: userRecord.email,
       displayName: userRecord.displayName,
       photoURL: userRecord.photoURL || null,
       role: role,
-      teamId: role === 'Core' ? '' : teamId || '',
+      teamId: teamId || '',
     };
     
     await db.collection('users').doc(userRecord.uid).set(userProfileData);
@@ -51,13 +53,29 @@ export async function createUserAction(params: CreateUserParams): Promise<{ erro
     
   } catch (error: any) {
     console.error('Error creating user with server action:', error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack,
+    });
+    
     // Provide a more user-friendly error message
     let message = 'An unexpected error occurred.';
-    if (error.code === 'auth/email-already-exists') {
-        message = 'The email address is already in use by another account.';
+    
+    if (error.message?.includes('service account') || error.message?.includes('FIREBASE_SERVICE_ACCOUNT_JSON')) {
+      message = 'Firebase Admin SDK is not configured. Please set up the service account credentials.';
+    } else if (error.code === 'auth/email-already-exists') {
+      message = 'The email address is already in use by another account.';
     } else if (error.code === 'auth/invalid-password') {
-        message = 'The password must be a string with at least six characters.';
+      message = 'The password must be a string with at least six characters.';
+    } else if (error.code === 'auth/invalid-email') {
+      message = 'The email address is invalid.';
+    } else if (error.code === 'permission-denied') {
+      message = 'Permission denied. You do not have access to create users.';
+    } else if (error.message) {
+      message = error.message;
     }
+    
     return { error: message };
   }
 }

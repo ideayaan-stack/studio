@@ -20,24 +20,24 @@ import { UserProfile, Role, Team } from '@/lib/types';
 import { useDoc } from '../firestore/use-collection';
 import { useRouter } from 'next/navigation';
 import { createUserAction } from '../actions/user-actions';
-
-const ADMIN_EMAIL = 'sarvy2503@gmail.com';
+import { isCore } from '@/lib/permissions';
 
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
   db: ReturnType<typeof initializeFirebase>['db'];
+  storage: ReturnType<typeof initializeFirebase>['storage'];
   createUser: (email: string, password: string, displayName: string, role: Role, teamId?: string) => Promise<{ error?: string }>;
   signIn: typeof signInWithEmailAndPassword;
   signOut: () => Promise<void>;
-  isCoreAdmin: boolean;
+  isCoreAdmin: boolean; // Kept for backward compatibility, now uses role-based check
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { auth, db } = initializeFirebase();
+  const { auth, db, storage } = initializeFirebase();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -49,21 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const { data: userProfileFromDb, loading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
-  const isCoreAdmin = user?.email === ADMIN_EMAIL;
+  // Use role-based check instead of hardcoded email
+  const isCoreAdmin = useMemo(() => {
+    return isCore(userProfileFromDb);
+  }, [userProfileFromDb]);
 
   const userProfile = useMemo(() => {
-    if (isCoreAdmin) {
-      return {
-        uid: user?.uid || 'admin-uid',
-        email: user?.email,
-        displayName: userProfileFromDb?.displayName || user?.displayName || 'Admin',
-        photoURL: userProfileFromDb?.photoURL || user?.photoURL,
-        role: 'Core' as Role,
-        teamId: '',
-      };
-    }
     return userProfileFromDb;
-  }, [user, userProfileFromDb, isCoreAdmin]);
+  }, [userProfileFromDb]);
 
 
   useEffect(() => {
@@ -88,8 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     user,
     userProfile: userProfile || null,
-    loading: loading || (profileLoading && !isCoreAdmin),
+    loading: loading || profileLoading,
     db,
+    storage,
     createUser,
     signIn: (email, password) => signInWithEmailAndPassword(auth, email, password),
     signOut,

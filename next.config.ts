@@ -25,8 +25,30 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'picsum.photos',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.firebasestorage.googleapis.com',
       }
     ]
+  },
+  // PWA configuration
+  async headers() {
+    return [
+      {
+        source: '/manifest.json',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/manifest+json',
+          },
+        ],
+      },
+    ];
   },
 };
 

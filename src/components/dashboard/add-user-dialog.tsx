@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import type { Team, Role } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { canCreateUsers } from '@/lib/permissions';
 
 const roles: Role[] = ['Core', 'Semi-core', 'Head', 'Volunteer'];
 
@@ -28,8 +29,18 @@ const addUserSchema = z.object({
     email: z.string().email({ message: 'Invalid email address' }),
     password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
     displayName: z.string().min(2, { message: 'Display name is required' }),
-    role: z.enum(roles),
+    role: z.enum(roles, { required_error: 'Role is required' }),
     teamId: z.string().optional(),
+}).refine((data) => {
+    // Team is required only for Head and Volunteer roles
+    // Core and Semi-core can be created without teams
+    if ((data.role === 'Head' || data.role === 'Volunteer') && !data.teamId) {
+        return false;
+    }
+    return true;
+}, {
+    message: 'Team is required for Head and Volunteer roles',
+    path: ['teamId'],
 });
 
 type AddUserInput = z.infer<typeof addUserSchema>;
@@ -41,9 +52,14 @@ interface AddUserDialogProps {
 }
 
 export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) {
-  const { createUser } = useAuth();
+  const { createUser, userProfile } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Only Core can create users
+  if (!canCreateUsers(userProfile)) {
+    return null;
+  }
 
   const {
     register,
@@ -60,11 +76,16 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
   });
 
   const selectedRole = watch('role');
-  const isTeamRequired = selectedRole && selectedRole !== 'Core';
+  // Team is required only for Head and Volunteer, optional for Core and Semi-core
+  const isTeamRequired = selectedRole === 'Head' || selectedRole === 'Volunteer';
 
   const onSubmit: SubmitHandler<AddUserInput> = async (data) => {
     setIsLoading(true);
-    const finalTeamId = data.role === 'Core' || data.teamId === 'unassigned' ? '' : data.teamId;
+    // Core and Semi-core can be created without teams
+    // Head and Volunteer must have teams
+    const finalTeamId = (data.role === 'Core' || data.role === 'Semi-core' || !data.teamId || data.teamId === 'unassigned') 
+      ? '' 
+      : data.teamId;
 
     try {
       // This now calls the server-side user creation, which doesn't log the admin out.
@@ -121,8 +142,11 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
             {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
-            <Select onValueChange={(value: Role) => setValue('role', value, { shouldValidate: true })}>
+            <Label htmlFor="role">Role *</Label>
+            <Select 
+              value={watch('role') || ''} 
+              onValueChange={(value: Role) => setValue('role', value, { shouldValidate: true })}
+            >
                 <SelectTrigger>
                     <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
@@ -135,20 +159,31 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
             {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
           </div>
 
-          <div className={cn("space-y-2 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-50 pointer-events-none')}>
-              <Label htmlFor="teamId">Team</Label>
-              <Select onValueChange={(value) => setValue('teamId', value)} defaultValue="unassigned">
+          <div className={cn("space-y-2 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-100')}>
+              <Label htmlFor="teamId">Team {isTeamRequired && '*'}</Label>
+              <Select 
+                value={watch('teamId') || 'unassigned'} 
+                onValueChange={(value) => setValue('teamId', value === 'unassigned' ? '' : value, { shouldValidate: true })}
+              >
                   <SelectTrigger>
-                      <SelectValue placeholder="Select a team" />
+                      <SelectValue placeholder={isTeamRequired ? "Select a team (required)" : "Select a team (optional)"} />
                   </SelectTrigger>
                   <SelectContent>
                       <SelectItem value="unassigned">No Team</SelectItem>
-                      {teams.filter(team => team.name !== 'Core').map(team => (
+                      {teams
+                        .filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core')
+                        .map(team => (
                           <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                      ))}
+                        ))}
                   </SelectContent>
               </Select>
               {errors.teamId && <p className="text-xs text-destructive">{errors.teamId.message}</p>}
+              {isTeamRequired && !watch('teamId') && (
+                <p className="text-xs text-muted-foreground">Team is required for Head and Volunteer roles</p>
+              )}
+              {!isTeamRequired && (
+                <p className="text-xs text-muted-foreground">Team can be assigned later</p>
+              )}
           </div>
 
           <DialogFooter>

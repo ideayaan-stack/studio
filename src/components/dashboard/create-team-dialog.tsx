@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useActionState } from 'react';
+import { useEffect, useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Dialog,
@@ -41,6 +41,7 @@ function SubmitButton() {
 
 export function CreateTeamDialog({ isOpen, setIsOpen, users }: CreateTeamDialogProps) {
   const [state, formAction] = useActionState(createTeamAction, initialState);
+  const [selectedHead, setSelectedHead] = useState<string>('no-head');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,16 +58,22 @@ export function CreateTeamDialog({ isOpen, setIsOpen, users }: CreateTeamDialogP
           description: state.message,
         });
         setIsOpen(false);
+        setSelectedHead('no-head');
       }
     }
   }, [state, toast, setIsOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        setSelectedHead('no-head');
+      }
+      setIsOpen(open);
+    }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <PlusCircle /> Create New Team
+            <PlusCircle className="h-5 w-5" /> Create New Team
           </DialogTitle>
           <DialogDescription>
             Set up a new team. You can assign a team head later.
@@ -75,7 +82,7 @@ export function CreateTeamDialog({ isOpen, setIsOpen, users }: CreateTeamDialogP
         <form action={formAction} className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Team Name *</Label>
-            <Input id="name" name="name" placeholder="e.g., Media Committee" />
+            <Input id="name" name="name" placeholder="e.g., Media Committee" required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Description (Optional)</Label>
@@ -83,19 +90,27 @@ export function CreateTeamDialog({ isOpen, setIsOpen, users }: CreateTeamDialogP
           </div>
           <div className="space-y-2">
             <Label htmlFor="head">Team Head (Optional)</Label>
-            <Select name="head">
+            <Select value={selectedHead} onValueChange={setSelectedHead}>
                 <SelectTrigger>
                     <SelectValue placeholder="Select a user to lead the team" />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="no-head">No Head</SelectItem>
-                    {users.map(user => (
-                        <SelectItem key={user.uid} value={user.uid}>{user.displayName}</SelectItem>
-                    ))}
+                    {users
+                      .filter(user => user.uid && user.uid.trim() !== '')
+                      .map(user => (
+                        <SelectItem key={user.uid} value={user.uid}>
+                          {user.displayName || user.email || `User ${user.uid.substring(0, 8)}`}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
             </Select>
+            <input type="hidden" name="head" value={selectedHead === 'no-head' ? 'none' : selectedHead} />
           </div>
           <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+              Cancel
+            </Button>
             <SubmitButton />
           </DialogFooter>
         </form>

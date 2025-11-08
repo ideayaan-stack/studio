@@ -1,23 +1,27 @@
 'use client';
 import { AiTaskSuggester } from '@/components/dashboard/ai-task-suggester';
 import { TaskCard } from '@/components/dashboard/task-card';
-import { useMemo } from 'react';
-import type { Task } from '@/lib/types';
+import { CreateTaskDialog } from '@/components/dashboard/create-task-dialog';
+import { useMemo, useState } from 'react';
+import type { Task, Team, UserProfile } from '@/lib/types';
 import { PlusCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useCollection } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { canSeeAllTasks, canCreateTasks, isHead, isVolunteer, canSeeAllTeams } from '@/lib/permissions';
 
 export default function TasksPage() {
-  const { db, userProfile, isCoreAdmin } = useAuth();
-  const isHead = userProfile?.role === 'Head';
+  const { db, userProfile } = useAuth();
+  const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
+  const userIsHead = isHead(userProfile);
+  const userIsVolunteer = isVolunteer(userProfile);
   
   const tasksQuery = useMemo(() => {
     if (!db) return null;
     // Core/Semi-core admins see all tasks
-    if (isCoreAdmin) {
+    if (canSeeAllTasks(userProfile)) {
       return collection(db, 'tasks');
     }
     // Team members see tasks associated with their team
@@ -25,14 +29,41 @@ export default function TasksPage() {
       return query(collection(db, 'tasks'), where('teamId', '==', userProfile.teamId));
     }
     // Volunteers see only tasks directly assigned to them, even if teamId isn't set
-    if (userProfile?.role === 'Volunteer' && userProfile.uid) {
+    if (userIsVolunteer && userProfile?.uid) {
        return query(collection(db, 'tasks'), where('assignee.uid', '==', userProfile.uid));
     }
     // Return null if no specific query can be formed (e.g., unassigned user)
     return null;
-  }, [db, userProfile, isCoreAdmin]);
+  }, [db, userProfile, userIsVolunteer]);
   
   const { data: tasks, loading } = useCollection<Task>(tasksQuery);
+
+  // Get teams for task creation
+  const teamsQuery = useMemo(() => {
+    if (!db) return null;
+    if (canSeeAllTeams(userProfile)) {
+      return collection(db, 'teams');
+    }
+    if (userProfile?.teamId) {
+      return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
+    }
+    return null;
+  }, [db, userProfile]);
+
+  // Get users for task assignment
+  const usersQuery = useMemo(() => {
+    if (!db) return null;
+    if (canSeeAllTeams(userProfile)) {
+      return collection(db, 'users');
+    }
+    if (userProfile?.teamId) {
+      return query(collection(db, 'users'), where('teamId', '==', userProfile.teamId));
+    }
+    return null;
+  }, [db, userProfile]);
+
+  const { data: teams } = useCollection<Team>(teamsQuery);
+  const { data: users } = useCollection<UserProfile>(usersQuery);
 
   const displayedTasks = tasks || [];
 
@@ -42,10 +73,10 @@ export default function TasksPage() {
       { title: 'Completed', tasks: displayedTasks.filter((t) => t.status === 'Completed') },
   ], [displayedTasks]);
 
-  const canAddTask = isCoreAdmin || isHead;
+  const canAddTask = canCreateTasks(userProfile);
 
   // Component to show when a user is not assigned to a team
-  if (!loading && !isCoreAdmin && !userProfile?.teamId) {
+  if (!loading && !canSeeAllTasks(userProfile) && !userProfile?.teamId) {
     return (
        <Alert variant="default" className="max-w-xl mx-auto">
           <AlertTriangle className="h-4 w-4" />
@@ -65,12 +96,12 @@ export default function TasksPage() {
                 <p className="text-muted-foreground">Organize and track tasks for your team.</p>
             </div>
             {canAddTask && (
-              <div className='flex gap-2'>
-                  <Button variant="outline">
+              <div className='flex gap-2 flex-wrap'>
+                  <Button variant="outline" onClick={() => setIsCreateTaskDialogOpen(true)}>
                       <PlusCircle className='mr-2 h-4 w-4'/>
                       Add Task
                   </Button>
-                  {isCoreAdmin && <AiTaskSuggester />}
+                  {canSeeAllTasks(userProfile) && <AiTaskSuggester />}
               </div>
             )}
         </div>
@@ -111,6 +142,15 @@ export default function TasksPage() {
               ))
             )}
         </div>
+
+        {canAddTask && (
+          <CreateTaskDialog
+            isOpen={isCreateTaskDialogOpen}
+            setIsOpen={setIsCreateTaskDialogOpen}
+            teams={teams || []}
+            users={users || []}
+          />
+        )}
     </div>
   );
 }

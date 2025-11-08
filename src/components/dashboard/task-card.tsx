@@ -12,16 +12,17 @@ import { MoreVertical, Calendar } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { format } from "date-fns";
 import { useAuth } from "@/firebase";
+import { canSeeAllTasks, isHead } from "@/lib/permissions";
 
 interface TaskCardProps {
   task: Task;
 }
 
 export function TaskCard({ task }: TaskCardProps) {
-  const { userProfile, isCoreAdmin } = useAuth();
+  const { userProfile } = useAuth();
   
-  // Core admins, semi-core, and heads can edit.
-  const canFullyEdit = isCoreAdmin || userProfile?.role === 'Head';
+  // Core, Semi-core, and heads can fully edit.
+  const canFullyEdit = canSeeAllTasks(userProfile) || (isHead(userProfile) && userProfile?.teamId === task.teamId);
   // The assigned volunteer can only update the status.
   const isAssignee = userProfile?.uid === task.assignee.uid;
 

@@ -18,19 +18,37 @@ import type { FileItem } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
 import { useAuth, useCollection } from '@/firebase';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { collection, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { canSeeAllFiles, canUploadToAnyTeam, isHead, canSeeAllTeams } from '@/lib/permissions';
+import { UploadFileDialog } from '@/components/dashboard/upload-file-dialog';
+import type { Team } from '@/lib/types';
 
 export default function FilesPage() {
-  const { db, userProfile, isCoreAdmin } = useAuth();
+  const { db, userProfile } = useAuth();
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+
+  // Get teams for upload dialog
+  const teamsQuery = useMemo(() => {
+    if (!db) return null;
+    if (canSeeAllTeams(userProfile)) {
+      return collection(db, 'teams');
+    }
+    if (userProfile?.teamId) {
+      return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
+    }
+    return null;
+  }, [db, userProfile]);
+
+  const { data: teams } = useCollection<Team>(teamsQuery);
 
   const filesQuery = useMemo(() => {
     if (!db) return null;
     // Core/Semi-core admins see all files
-    if (isCoreAdmin) {
+    if (canSeeAllFiles(userProfile)) {
       return collection(db, 'files');
     }
     // Team members see files associated with their team
@@ -39,14 +57,14 @@ export default function FilesPage() {
     }
     // Return null if no specific query can be formed (e.g., unassigned user)
     return null;
-  }, [db, userProfile, isCoreAdmin]);
+  }, [db, userProfile]);
 
   const { data: files, loading } = useCollection<FileItem>(filesQuery);
 
-  const canUpload = isCoreAdmin || userProfile?.role === 'Head';
+  const canUpload = canUploadToAnyTeam(userProfile) || isHead(userProfile);
 
   // Component to show when a user is not assigned to a team
-  if (!loading && !isCoreAdmin && !userProfile?.teamId) {
+  if (!loading && !canSeeAllFiles(userProfile) && !userProfile?.teamId) {
     return (
        <Alert variant="default" className="max-w-xl mx-auto">
           <AlertTriangle className="h-4 w-4" />
@@ -66,7 +84,7 @@ export default function FilesPage() {
                 <p className="text-muted-foreground">Access and manage all team documents.</p>
             </div>
             {canUpload && (
-              <Button size="sm" className="gap-1">
+              <Button size="sm" className="gap-1" onClick={() => setIsUploadDialogOpen(true)}>
                   <PlusCircle className="h-4 w-4" />
                   Upload File
               </Button>
@@ -113,7 +131,7 @@ export default function FilesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem>Download</DropdownMenuItem>
-                            {(isCoreAdmin || file.uploadedBy === userProfile?.uid) && (
+                            {(canSeeAllFiles(userProfile) || file.uploadedBy === userProfile?.uid) && (
                               <>
                                 <DropdownMenuItem>Rename</DropdownMenuItem>
                                 <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>
@@ -150,6 +168,14 @@ export default function FilesPage() {
               )}
           </>
         )}
+      {canUpload && (
+        <UploadFileDialog
+          isOpen={isUploadDialogOpen}
+          setIsOpen={setIsUploadDialogOpen}
+          teams={teams || []}
+          defaultTeamId={userProfile?.teamId}
+        />
+      )}
     </div>
   );
 }

@@ -3,13 +3,13 @@
 // You do not need to edit this file.
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyDHF7Z8O0RI17Crz-faOmeQRsMtBecLgGY",
-  authDomain: "studio-2788856224-eb316.firebaseapp.com",
-  projectId: "studio-2788856224-eb316",
-  storageBucket: "studio-2788856224-eb316.appspot.com",
-  messagingSenderId: "8193486209",
-  appId: "1:8193486209:web:5bc09ed9445a90cb2acc80",
-  measurementId: "G-0DQETY0TN5"
+  apiKey: "AIzaSyCq31RhKn5vFUhqM53lSf3zm0xp8oJSLQk",
+  authDomain: "ideayaan-cd964.firebaseapp.com",
+  projectId: "ideayaan-cd964",
+  storageBucket: "ideayaan-cd964.firebasestorage.app",
+  messagingSenderId: "686662832453",
+  appId: "1:686662832453:web:cceaafd8dd508de564ee2c",
+  measurementId: "G-JJVGWKP9FV"
 };
 
 // Check if all required environment variables are set, but only on the client side

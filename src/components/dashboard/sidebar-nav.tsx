@@ -15,8 +15,11 @@ import {
   Folder,
   MessageSquare,
 } from 'lucide-react';
+import { useAuth } from '@/firebase';
+import { canAccessTeamsPage } from '@/lib/permissions';
+import { useMemo } from 'react';
 
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, tooltip: "Dashboard" },
   { href: '/dashboard/teams', label: 'Teams', icon: Users, tooltip: "Teams" },
   { href: '/dashboard/tasks', label: 'To-Do', icon: CheckSquare, tooltip: "To-Do" },
@@ -26,6 +29,22 @@ const navItems: NavItem[] = [
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { userProfile } = useAuth();
+
+  // Filter nav items based on role
+  const navItems = useMemo(() => {
+    return allNavItems.filter(item => {
+      // Everyone can access Dashboard, Tasks, Files, and Chat
+      if (['/dashboard', '/dashboard/tasks', '/dashboard/files', '/dashboard/chat'].includes(item.href)) {
+        return true;
+      }
+      // Teams page: Only Core, Semi-core, and Head can access
+      if (item.href === '/dashboard/teams') {
+        return canAccessTeamsPage(userProfile);
+      }
+      return true;
+    });
+  }, [userProfile]);
 
   return (
     <SidebarMenu>
