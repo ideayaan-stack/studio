@@ -9,9 +9,9 @@ import { ProfilePictureUpload } from '@/components/dashboard/profile-picture-upl
 import { ThemeToggle } from '@/components/dashboard/theme-toggle';
 import { NotificationSettings } from '@/components/dashboard/notification-settings';
 import { TeamIconUpload } from '@/components/dashboard/team-icon-upload';
-import { User, Palette, Bell, Shield, Menu, Users } from 'lucide-react';
+import { User, Palette, Bell, Shield, Menu, Users, LogOut } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth, useCollection } from '@/firebase';
+import { useAuth, useCollection, signOut } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Team } from '@/lib/types';
 import { canSeeAllTeams, canAccessTeamsPage, isHead } from '@/lib/permissions';
@@ -177,6 +177,14 @@ export default function SettingsPage() {
                 <div className="text-sm text-muted-foreground">
                   Additional account settings will be available here in the future.
                 </div>
+                <Button 
+                  variant="destructive" 
+                  onClick={signOut}
+                  className="w-full sm:w-auto"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
               </div>
             </CardContent>
           </Card>

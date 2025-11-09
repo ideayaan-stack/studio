@@ -69,6 +69,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
     defaultValues: {
       status: 'Pending',
       teamId: userProfile?.teamId || '',
+      assigneeId: undefined,
     },
   });
 
@@ -241,7 +242,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
             <Label htmlFor="assigneeId">Assign To (Optional)</Label>
             <div className="flex gap-2">
               <Select
-                value={watch('assigneeId') || ''}
+                value={watch('assigneeId') || 'unassigned'}
                 onValueChange={(value) => {
                   if (value === '__all__' || value === '__custom__') {
                     if (value === '__all__') {
@@ -260,8 +261,10 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
                       setMultiSelectMode('assignee');
                       setIsMultiSelectOpen(true);
                     }
+                  } else if (value === 'unassigned') {
+                    setValue('assigneeId', undefined, { shouldValidate: true });
                   } else {
-                    setValue('assigneeId', value || undefined, { shouldValidate: true });
+                    setValue('assigneeId', value, { shouldValidate: true });
                   }
                 }}
                 disabled={!selectedTeamId || teamUsers.length === 0}
@@ -270,7 +273,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
                   <SelectValue placeholder={selectedTeamId ? "Select assignment option" : "Select a team first"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {canAssignToAnyTeam && selectedTeamId && teamUsers.length > 0 && (
                     <>
                       <SelectItem value="__all__">

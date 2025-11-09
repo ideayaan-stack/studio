@@ -28,7 +28,7 @@ const editTaskSchema = z.object({
   title: z.string().min(3, { message: 'Title must be at least 3 characters' }),
   description: z.string().min(5, { message: 'Description must be at least 5 characters' }),
   teamId: z.string().min(1, { message: 'Team is required' }),
-  assigneeId: z.string().min(1, { message: 'Assignee is required' }),
+  assigneeId: z.string().optional(),
   deadline: z.string().min(1, { message: 'Deadline is required' }),
   status: z.enum(['Pending', 'In Progress', 'Completed']),
 });
@@ -64,7 +64,7 @@ export function EditTaskDialog({ isOpen, setIsOpen, task, teams, users }: EditTa
       title: task?.title || '',
       description: task?.description || '',
       teamId: task?.teamId || '',
-      assigneeId: task?.assignee.uid || '',
+      assigneeId: task?.assignee.uid || undefined,
       deadline: task?.deadline ? new Date(task.deadline.toDate()).toISOString().slice(0, 16) : '',
       status: task?.status || 'Pending',
     },
@@ -76,7 +76,7 @@ export function EditTaskDialog({ isOpen, setIsOpen, task, teams, users }: EditTa
         title: task.title || '',
         description: task.description || '',
         teamId: task.teamId || '',
-        assigneeId: task.assignee.uid || '',
+        assigneeId: task.assignee.uid || undefined,
         deadline: task.deadline ? new Date(task.deadline.toDate()).toISOString().slice(0, 16) : '',
         status: task.status || 'Pending',
       });
@@ -195,7 +195,7 @@ export function EditTaskDialog({ isOpen, setIsOpen, task, teams, users }: EditTa
               value={selectedTeamId}
               onValueChange={(value) => {
                 setValue('teamId', value, { shouldValidate: true });
-                setValue('assigneeId', '', { shouldValidate: false });
+                setValue('assigneeId', undefined, { shouldValidate: false });
               }}
             >
               <SelectTrigger>
@@ -215,14 +215,21 @@ export function EditTaskDialog({ isOpen, setIsOpen, task, teams, users }: EditTa
           <div className="space-y-2">
             <Label htmlFor="assigneeId">Assign To *</Label>
             <Select
-              value={watch('assigneeId')}
-              onValueChange={(value) => setValue('assigneeId', value, { shouldValidate: true })}
+              value={watch('assigneeId') || 'unassigned'}
+              onValueChange={(value) => {
+                if (value === 'unassigned') {
+                  setValue('assigneeId', undefined, { shouldValidate: true });
+                } else {
+                  setValue('assigneeId', value, { shouldValidate: true });
+                }
+              }}
               disabled={!selectedTeamId || teamUsers.length === 0}
             >
               <SelectTrigger>
                 <SelectValue placeholder={selectedTeamId ? "Select a team member" : "Select a team first"} />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
                 {teamUsers.map(user => (
                   <SelectItem key={user.uid} value={user.uid}>
                     {user.displayName || user.email}
