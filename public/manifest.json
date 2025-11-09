@@ -1,12 +1,12 @@
 {
-  "name": "Ideayaan - Team Management",
+  "name": "Ideayaan",
   "short_name": "Ideayaan",
   "description": "A role-based event and team management system for college committees.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#fb923c",
   "scope": "/",
   "icons": [
     {

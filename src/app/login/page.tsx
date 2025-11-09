@@ -93,7 +93,7 @@ export default function LoginPage() {
         <CardHeader className="space-y-1 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Lightbulb className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-headline font-bold text-primary">Ideayaan</h1>
+            <h1 className="text-3xl font-headline font-bold bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">Ideayaan</h1>
           </div>
           <CardTitle className="text-2xl font-headline">Welcome Back</CardTitle>
           <CardDescription>

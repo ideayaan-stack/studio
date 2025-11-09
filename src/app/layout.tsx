@@ -19,7 +19,7 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  title: 'Ideayaan - Event & Team Management',
+  title: 'Ideayaan',
   description: 'A role-based event and team management system for college committees.',
   manifest: '/manifest.json',
 };
@@ -55,7 +55,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#3b82f6" />
+        <meta name="theme-color" content="#a855f7" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Ideayaan" />

@@ -99,7 +99,7 @@ export default function DashboardPage() {
     if (userProfile?.teamId) {
       return query(
         collection(db, 'meetings'),
-        where('teamId', '==', userProfile.teamId),
+        where('teamId', 'in', [userProfile.teamId, null]), // Include team meetings and all-team meetings
         orderBy('scheduledDate', 'asc')
       );
     }

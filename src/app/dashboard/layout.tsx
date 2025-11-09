@@ -23,8 +23,8 @@ export default function DashboardLayout({
         <Sidebar>
           <SidebarHeader className='p-4'>
             <div className="flex items-center gap-2">
-              <Lightbulb className="size-8 text-primary" />
-              <h1 className="text-2xl font-headline font-bold text-primary group-data-[collapsible=icon]:hidden">
+              <Lightbulb className="size-8 text-orange-500" />
+              <h1 className="text-2xl font-headline font-bold bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent group-data-[collapsible=icon]:hidden">
                 Ideayaan
               </h1>
             </div>
