@@ -14,6 +14,7 @@ import {
   CheckSquare,
   Folder,
   MessageSquare,
+  Video,
 } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { canAccessTeamsPage } from '@/lib/permissions';
@@ -25,6 +26,7 @@ const allNavItems: NavItem[] = [
   { href: '/dashboard/tasks', label: 'To-Do', icon: CheckSquare, tooltip: "To-Do" },
   { href: '/dashboard/files', label: 'Files', icon: Folder, tooltip: "Files" },
   { href: '/dashboard/chat', label: 'Chat', icon: MessageSquare, tooltip: "Chat" },
+  { href: '/dashboard/meetings', label: 'Meetings', icon: Video, tooltip: "Meetings" },
 ];
 
 export function SidebarNav() {

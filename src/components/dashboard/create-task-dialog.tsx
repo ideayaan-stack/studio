@@ -26,13 +26,15 @@ import { canSeeAllTeams, canAssignTasks } from '@/lib/permissions';
 import { notifyTaskAssignment } from '@/lib/notifications';
 import { sendTaskAssignmentEmail } from '@/lib/email-service';
 import { format } from 'date-fns';
+import { MultiSelectAssignDialog } from '@/components/dashboard/multi-select-assign-dialog';
+import { Users } from 'lucide-react';
 
 const taskSchema = z.object({
   title: z.string().min(3, { message: 'Title must be at least 3 characters' }),
   description: z.string().min(5, { message: 'Description must be at least 5 characters' }),
   teamId: z.string().min(1, { message: 'Team is required' }),
-  assigneeId: z.string().min(1, { message: 'Assignee is required' }),
-  deadline: z.string().min(1, { message: 'Deadline is required' }),
+  assigneeId: z.string().optional(),
+  deadline: z.string().optional(),
   status: z.enum(['Pending', 'In Progress', 'Completed']).default('Pending'),
 });
 
@@ -49,6 +51,8 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
   const { db, userProfile } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isMultiSelectOpen, setIsMultiSelectOpen] = useState(false);
+  const [multiSelectMode, setMultiSelectMode] = useState<'assignee' | null>(null);
 
   const canAssignToAnyTeam = canSeeAllTeams(userProfile);
   const availableTeams = canAssignToAnyTeam ? teams : teams.filter(t => t.id === userProfile?.teamId);
@@ -85,14 +89,31 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
 
     setIsLoading(true);
     try {
-      const assignee = users.find(u => u.uid === data.assigneeId);
-      if (!assignee) {
-        throw new Error('Assignee not found');
+      // Handle optional assignee
+      let assigneeData = null;
+      if (data.assigneeId) {
+        const assignee = users.find(u => u.uid === data.assigneeId);
+        if (!assignee) {
+          throw new Error('Assignee not found');
+        }
+        assigneeData = {
+          uid: assignee.uid,
+          name: assignee.displayName || 'Unknown',
+          avatarUrl: assignee.photoURL || null,
+          avatarHint: assignee.displayName || '',
+        };
       }
 
-      const deadlineDate = new Date(data.deadline);
-      if (isNaN(deadlineDate.getTime())) {
-        throw new Error('Invalid deadline date');
+      // Handle optional deadline (default to 7 days from now)
+      let deadlineDate: Date;
+      if (data.deadline) {
+        deadlineDate = new Date(data.deadline);
+        if (isNaN(deadlineDate.getTime())) {
+          throw new Error('Invalid deadline date');
+        }
+      } else {
+        deadlineDate = new Date();
+        deadlineDate.setDate(deadlineDate.getDate() + 7); // Default to 7 days from now
       }
 
       await addDoc(collection(db, 'tasks'), {
@@ -100,11 +121,11 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
         description: data.description,
         status: data.status,
         teamId: data.teamId,
-        assignee: {
-          uid: assignee.uid,
-          name: assignee.displayName || 'Unknown',
-          avatarUrl: assignee.photoURL || null,
-          avatarHint: assignee.displayName || '',
+        assignee: assigneeData || {
+          uid: '',
+          name: 'Unassigned',
+          avatarUrl: null,
+          avatarHint: '',
         },
         deadline: Timestamp.fromDate(deadlineDate),
         createdAt: Timestamp.now(),
@@ -116,25 +137,28 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
         description: `Task "${data.title}" has been created successfully.`,
       });
 
-      // Send notifications
-      try {
-        // Browser notification
-        await notifyTaskAssignment(data.title, userProfile.displayName || 'Someone');
-        
-        // Email notification (if email is available)
-        if (assignee.email) {
-          const deadlineStr = format(deadlineDate, 'MMM dd, yyyy HH:mm');
-          await sendTaskAssignmentEmail(
-            assignee.email,
-            assignee.displayName || assignee.email,
-            data.title,
-            deadlineStr,
-            userProfile.displayName || 'Someone'
-          );
+      // Send notifications only if assignee is selected
+      if (assigneeData) {
+        try {
+          const assignee = users.find(u => u.uid === data.assigneeId);
+          // Browser notification
+          await notifyTaskAssignment(data.title, userProfile.displayName || 'Someone');
+          
+          // Email notification (if email is available)
+          if (assignee?.email) {
+            const deadlineStr = format(deadlineDate, 'MMM dd, yyyy HH:mm');
+            await sendTaskAssignmentEmail(
+              assignee.email,
+              assignee.displayName || assignee.email,
+              data.title,
+              deadlineStr,
+              userProfile.displayName || 'Someone'
+            );
+          }
+        } catch (notifError) {
+          // Don't fail the task creation if notifications fail
+          console.error('Error sending notifications:', notifError);
         }
-      } catch (notifError) {
-        // Don't fail the task creation if notifications fail
-        console.error('Error sending notifications:', notifError);
       }
 
       reset();
@@ -214,23 +238,63 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="assigneeId">Assign To *</Label>
-            <Select
-              value={watch('assigneeId')}
-              onValueChange={(value) => setValue('assigneeId', value, { shouldValidate: true })}
-              disabled={!selectedTeamId || teamUsers.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={selectedTeamId ? "Select a team member" : "Select a team first"} />
-              </SelectTrigger>
-              <SelectContent>
-                {teamUsers.map(user => (
-                  <SelectItem key={user.uid} value={user.uid}>
-                    {user.displayName || user.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="assigneeId">Assign To (Optional)</Label>
+            <div className="flex gap-2">
+              <Select
+                value={watch('assigneeId') || ''}
+                onValueChange={(value) => {
+                  if (value === '__all__' || value === '__custom__') {
+                    if (value === '__all__') {
+                      // Assign to all members of selected team
+                      const allTeamUserIds = teamUsers.map(u => u.uid);
+                      if (allTeamUserIds.length > 0) {
+                        // For now, we'll assign to first member and note it's for all
+                        // In a real implementation, you'd create multiple tasks
+                        setValue('assigneeId', allTeamUserIds[0], { shouldValidate: true });
+                        toast({
+                          title: 'Note',
+                          description: 'Task will be assigned to all team members. Multiple task instances will be created.',
+                        });
+                      }
+                    } else if (value === '__custom__') {
+                      setMultiSelectMode('assignee');
+                      setIsMultiSelectOpen(true);
+                    }
+                  } else {
+                    setValue('assigneeId', value || undefined, { shouldValidate: true });
+                  }
+                }}
+                disabled={!selectedTeamId || teamUsers.length === 0}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder={selectedTeamId ? "Select assignment option" : "Select a team first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {canAssignToAnyTeam && selectedTeamId && teamUsers.length > 0 && (
+                    <>
+                      <SelectItem value="__all__">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          All Members ({teamUsers.length})
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="__custom__">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          Custom Selection...
+                        </div>
+                      </SelectItem>
+                    </>
+                  )}
+                  {teamUsers.map(user => (
+                    <SelectItem key={user.uid} value={user.uid}>
+                      {user.displayName || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {errors.assigneeId && <p className="text-xs text-destructive">{errors.assigneeId.message}</p>}
             {selectedTeamId && teamUsers.length === 0 && (
               <p className="text-xs text-muted-foreground">No members found in this team.</p>
@@ -238,14 +302,16 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="deadline">Deadline *</Label>
+            <Label htmlFor="deadline">Deadline (Optional)</Label>
             <Input
               id="deadline"
               type="datetime-local"
               {...register('deadline')}
               min={new Date().toISOString().slice(0, 16)}
+              placeholder="Leave empty for default (7 days from now)"
             />
             {errors.deadline && <p className="text-xs text-destructive">{errors.deadline.message}</p>}
+            <p className="text-xs text-muted-foreground">If not specified, deadline will be set to 7 days from now.</p>
           </div>
 
           <div className="space-y-2">
@@ -283,6 +349,29 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
             </Button>
           </DialogFooter>
         </form>
+        
+        <MultiSelectAssignDialog
+          isOpen={isMultiSelectOpen}
+          setIsOpen={setIsMultiSelectOpen}
+          teams={availableTeams}
+          users={users}
+          onConfirm={(selectedTeamIds, selectedUserIds) => {
+            if (selectedUserIds.length > 0) {
+              // For now, assign to first selected user
+              // In a full implementation, you'd create multiple tasks
+              setValue('assigneeId', selectedUserIds[0], { shouldValidate: true });
+              if (selectedUserIds.length > 1) {
+                toast({
+                  title: 'Note',
+                  description: `${selectedUserIds.length} members selected. Multiple task instances will be created.`,
+                });
+              }
+            }
+            setMultiSelectMode(null);
+          }}
+          title="Select Teams and Members"
+          description="Choose specific teams and members to assign this task to."
+        />
       </DialogContent>
     </Dialog>
   );

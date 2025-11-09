@@ -37,7 +37,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TeamIconUpload } from '@/components/dashboard/team-icon-upload';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { canAccessTeamsPage } from '@/lib/permissions';
+import { canAccessTeamsPage, canChatInAllTeams, isCore, isSemiCore } from '@/lib/permissions';
+import { MessageItem } from '@/components/dashboard/message-item';
+import { useCollection as useUsersCollection } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Palette } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -46,6 +51,17 @@ interface ChatMessage {
   senderName: string;
   text: string;
   timestamp: Timestamp;
+  deleted?: boolean;
+  deletedAt?: Timestamp;
+  edited?: boolean;
+  editedAt?: Timestamp;
+  reactions?: Record<string, string[]>;
+  readBy?: Record<string, Timestamp>;
+  replyTo?: {
+    messageId: string;
+    senderName: string;
+    text: string;
+  } | null;
 }
 
 const COMMON_CHAT_ID = 'common';
@@ -61,9 +77,15 @@ export default function ChatPage() {
   const [replyTo, setReplyTo] = useState<{ messageId: string; senderName: string; text: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; messageId: string | null }>({ open: false, messageId: null });
+  const [chatBackground, setChatBackground] = useState<string>('');
+  const [isBackgroundDialogOpen, setIsBackgroundDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
 
   // Get teams user can chat in
   const teamsQuery = useMemo(() => {
@@ -80,6 +102,13 @@ export default function ChatPage() {
   }, [db, userProfile]);
 
   const { data: teams, loading: teamsLoading } = useCollection<Team>(teamsQuery);
+
+  // Get all users for message display
+  const usersQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
+  const { data: allUsers } = useUsersCollection(usersQuery);
 
   // Create chat list with community chat + team chats
   const chatList = useMemo(() => {
@@ -102,6 +131,29 @@ export default function ChatPage() {
       setSelectedTeamId(chatList[0].id);
     }
   }, [chatList, selectedTeamId]);
+
+  // Load chat background from localStorage
+  useEffect(() => {
+    if (selectedTeamId) {
+      const saved = localStorage.getItem(`chat-background-${selectedTeamId}`);
+      if (saved) {
+        setChatBackground(saved);
+      } else {
+        setChatBackground('');
+      }
+    }
+  }, [selectedTeamId]);
+
+  // Save chat background to localStorage
+  useEffect(() => {
+    if (selectedTeamId) {
+      if (chatBackground) {
+        localStorage.setItem(`chat-background-${selectedTeamId}`, chatBackground);
+      } else {
+        localStorage.removeItem(`chat-background-${selectedTeamId}`);
+      }
+    }
+  }, [chatBackground, selectedTeamId]);
 
   // Close chat list on mobile when a chat is selected
   const handleSelectChat = (chatId: string) => {
@@ -147,13 +199,187 @@ export default function ChatPage() {
         senderName: userProfile.displayName || 'Unknown',
         text: messageText.trim(),
         timestamp: Timestamp.now(),
+        deleted: false,
+        edited: false,
+        reactions: {},
+        readBy: {},
+        replyTo: replyTo ? {
+          messageId: replyTo.messageId,
+          senderName: replyTo.senderName,
+          text: replyTo.text,
+        } : null,
       });
       setMessageText('');
+      setReplyTo(null);
     } catch (error) {
       console.error('Error sending message:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to send message',
+        description: 'Please try again.',
+      });
     } finally {
       setIsSending(false);
     }
+  };
+
+  // Mark messages as read when viewing
+  useEffect(() => {
+    if (!db || !selectedTeamId || !userProfile || !messages) return;
+    
+    const unreadMessages = messages.filter(msg => 
+      !msg.deleted && 
+      msg.senderId !== userProfile.uid && 
+      (!msg.readBy || !msg.readBy[userProfile.uid])
+    );
+
+    if (unreadMessages.length > 0) {
+      const batch = writeBatch(db);
+      unreadMessages.forEach(msg => {
+        const msgRef = doc(db, 'messages', msg.id);
+        const readBy = msg.readBy || {};
+        readBy[userProfile.uid] = Timestamp.now();
+        batch.update(msgRef, { readBy });
+      });
+      batch.commit().catch(console.error);
+    }
+  }, [db, selectedTeamId, userProfile, messages]);
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!db || !userProfile) return;
+    
+    const message = messages?.find(m => m.id === messageId);
+    if (!message) return;
+
+    const canDelete = message.senderId === userProfile.uid || 
+                     isCore(userProfile) || 
+                     isSemiCore(userProfile);
+    
+    if (!canDelete) {
+      toast({
+        variant: 'destructive',
+        title: 'Permission Denied',
+        description: 'You can only delete your own messages.',
+      });
+      return;
+    }
+
+    setDeleteDialog({ open: true, messageId });
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!db || !deleteDialog.messageId) return;
+    
+    try {
+      const msgRef = doc(db, 'messages', deleteDialog.messageId);
+      await updateDoc(msgRef, {
+        deleted: true,
+        deletedAt: Timestamp.now(),
+        text: 'This message was deleted',
+      });
+      toast({
+        title: 'Message Deleted',
+        description: 'The message has been deleted.',
+      });
+      setDeleteDialog({ open: false, messageId: null });
+    } catch (error: any) {
+      console.error('Error deleting message:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to delete message',
+        description: error.message || 'Please try again.',
+      });
+    }
+  };
+
+  const handleEditMessage = (messageId: string) => {
+    const message = messages?.find(m => m.id === messageId);
+    if (!message) return;
+
+    // Check if message can be edited (within 15 minutes and is own message)
+    const now = new Date();
+    const messageTime = message.timestamp.toDate();
+    const diffMinutes = (now.getTime() - messageTime.getTime()) / (1000 * 60);
+    
+    if (diffMinutes > 15) {
+      toast({
+        variant: 'destructive',
+        title: 'Cannot Edit',
+        description: 'Messages can only be edited within 15 minutes of sending.',
+      });
+      return;
+    }
+
+    setEditingMessageId(messageId);
+    setEditText(message.text);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!db || !editingMessageId || !editText.trim()) return;
+    
+    try {
+      const msgRef = doc(db, 'messages', editingMessageId);
+      await updateDoc(msgRef, {
+        text: editText.trim(),
+        edited: true,
+        editedAt: Timestamp.now(),
+      });
+      setEditingMessageId(null);
+      setEditText('');
+      toast({
+        title: 'Message Updated',
+        description: 'Your message has been updated.',
+      });
+    } catch (error: any) {
+      console.error('Error editing message:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to edit message',
+        description: error.message || 'Please try again.',
+      });
+    }
+  };
+
+  const handleReact = async (messageId: string, emoji: string) => {
+    if (!db || !userProfile) return;
+    
+    const message = messages?.find(m => m.id === messageId);
+    if (!message) return;
+
+    const reactions = message.reactions || {};
+    const userId = userProfile.uid;
+    
+    // Toggle reaction
+    if (reactions[emoji]?.includes(userId)) {
+      // Remove reaction
+      reactions[emoji] = reactions[emoji].filter(id => id !== userId);
+      if (reactions[emoji].length === 0) {
+        delete reactions[emoji];
+      }
+    } else {
+      // Add reaction
+      reactions[emoji] = [...(reactions[emoji] || []), userId];
+    }
+
+    try {
+      const msgRef = doc(db, 'messages', messageId);
+      await updateDoc(msgRef, { reactions });
+    } catch (error: any) {
+      console.error('Error reacting to message:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to react',
+        description: 'Please try again.',
+      });
+    }
+  };
+
+  const handleReply = (message: ChatMessage) => {
+    setReplyTo({
+      messageId: message.id,
+      senderName: message.senderName,
+      text: message.text,
+    });
   };
 
   const getInitials = (name: string) => {
@@ -286,20 +512,24 @@ export default function ChatPage() {
                     : `Chat with ${selectedChat.name}`}
                 </p>
               </div>
-              {!selectedChat.isCommon && selectedChat.team && canAccessTeamsPage(userProfile) && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Settings2 className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setIsBackgroundDialogOpen(true)}>
+                    <Palette className="h-4 w-4 mr-2" />
+                    Chat Background
+                  </DropdownMenuItem>
+                  {!selectedChat.isCommon && selectedChat.team && canAccessTeamsPage(userProfile) && (
                     <DropdownMenuItem onClick={() => setIsTeamIconDialogOpen(true)}>
                       Change Team Icon
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 md:p-6">
               {messagesLoading ? (
@@ -309,39 +539,63 @@ export default function ChatPage() {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-6" style={{ backgroundImage: chatBackground ? `url(${chatBackground})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                   {messages?.map((message) => {
-                    const isOwn = message.senderId === userProfile?.uid;
-                    return (
-                      <div
-                        key={message.id}
-                        className={cn('flex items-end gap-3', isOwn && 'flex-row-reverse')}
-                      >
-                        <Avatar className="h-8 w-8 shrink-0">
-                          <AvatarFallback>{getInitials(message.senderName)}</AvatarFallback>
-                        </Avatar>
-                        <div
-                          className={cn(
-                            'max-w-xs md:max-w-md rounded-lg px-4 py-2',
-                            isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                          )}
-                        >
-                          {!isOwn && (
-                            <p className="text-xs font-semibold mb-1 opacity-70">
-                              {message.senderName}
-                            </p>
-                          )}
-                          <p className="text-sm">{message.text}</p>
-                          <p
-                            className={cn(
-                              'text-xs mt-1 text-right',
-                              isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                            )}
-                          >
-                            {formatMessageTime(message.timestamp)}
-                          </p>
+                    if (message.deleted) {
+                      return (
+                        <div key={message.id} className="text-center text-muted-foreground text-sm italic py-2">
+                          This message was deleted
                         </div>
-                      </div>
+                      );
+                    }
+
+                    const isOwn = message.senderId === userProfile?.uid;
+                    const senderProfile = allUsers?.find(u => u.uid === message.senderId);
+                    const canDelete = isOwn || isCore(userProfile) || isSemiCore(userProfile);
+                    const canEdit = isOwn && !message.edited && 
+                      (new Date().getTime() - message.timestamp.toDate().getTime()) < 15 * 60 * 1000;
+
+                    if (editingMessageId === message.id) {
+                      return (
+                        <div key={message.id} className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                          <Input
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="flex-1"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSaveEdit();
+                              }
+                              if (e.key === 'Escape') {
+                                setEditingMessageId(null);
+                                setEditText('');
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <Button size="sm" onClick={handleSaveEdit}>Save</Button>
+                          <Button size="sm" variant="ghost" onClick={() => {
+                            setEditingMessageId(null);
+                            setEditText('');
+                          }}>Cancel</Button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <MessageItem
+                        key={message.id}
+                        message={message}
+                        isOwn={isOwn}
+                        userProfile={userProfile}
+                        senderProfile={senderProfile}
+                        onReply={handleReply}
+                        onReact={handleReact}
+                        onDelete={canDelete ? handleDeleteMessage : undefined}
+                        onEdit={canEdit ? handleEditMessage : undefined}
+                        showAvatar={true}
+                      />
                     );
                   })}
                   {messages?.length === 0 && (
@@ -354,6 +608,22 @@ export default function ChatPage() {
               )}
             </ScrollArea>
             <div className="p-4 border-t bg-card">
+              {replyTo && (
+                <div className="mb-2 p-2 bg-muted rounded-lg flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground">Replying to {replyTo.senderName}</p>
+                    <p className="text-sm truncate">{replyTo.text}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setReplyTo(null)}
+                  >
+                    ×
+                  </Button>
+                </div>
+              )}
               <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                 <Input
                   placeholder="Type a message..."
@@ -392,6 +662,72 @@ export default function ChatPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Chat Background Dialog */}
+      <Dialog open={isBackgroundDialogOpen} onOpenChange={setIsBackgroundDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Chat Background</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="grid grid-cols-4 gap-2">
+              {['', '#f0f0f0', '#e3f2fd', '#f3e5f5', '#fff3e0', '#e8f5e9', '#fce4ec', '#fff9c4'].map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  className={cn(
+                    'h-16 rounded-lg border-2 transition-all',
+                    chatBackground === color ? 'border-primary scale-105' : 'border-transparent'
+                  )}
+                  style={{ backgroundColor: color || 'transparent' }}
+                  onClick={() => setChatBackground(color)}
+                >
+                  {!color && <span className="text-xs">Default</span>}
+                </button>
+              ))}
+            </div>
+            <Input
+              placeholder="Or enter image URL"
+              value={chatBackground.startsWith('http') ? chatBackground : ''}
+              onChange={(e) => {
+                if (e.target.value.startsWith('http')) {
+                  setChatBackground(e.target.value);
+                }
+              }}
+            />
+            <Button
+              variant="outline"
+              onClick={() => {
+                setChatBackground('');
+                localStorage.removeItem(`chat-background-${selectedTeamId}`);
+              }}
+            >
+              Reset to Default
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Message Confirmation */}
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, messageId: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Message</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this message? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteMessage}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

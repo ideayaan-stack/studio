@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { AvatarWithRing } from "@/components/dashboard/avatar-with-ring";
 import {
@@ -9,7 +10,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Calendar, Edit, ArrowRight, Trash2 } from "lucide-react";
+import { MoreVertical, Calendar, Edit, ArrowRight, Trash2, CheckSquare2, Square } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Task } from "@/lib/types";
 import { format } from "date-fns";
 import { useAuth } from "@/firebase";
@@ -21,9 +23,12 @@ interface TaskCardProps {
   onStatusChange?: (task: Task) => void;
   onAssign?: (task: Task) => void;
   onDelete?: (task: Task) => void;
+  isBulkMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (taskId: string) => void;
 }
 
-export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusChange, onAssign, onDelete }: TaskCardProps) {
+export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusChange, onAssign, onDelete, isBulkMode, isSelected, onToggleSelect }: TaskCardProps) {
   const { userProfile } = useAuth();
   
   // Core, Semi-core, and heads can fully edit.
@@ -49,10 +54,19 @@ export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusCha
   }
 
   return (
-    <Card className="mb-4 shadow-sm hover:shadow-md transition-shadow bg-card">
+    <Card className={cn("mb-4 shadow-sm hover:shadow-md transition-shadow bg-card", isSelected && "ring-2 ring-primary")}>
       <CardHeader className="p-4 flex flex-row items-start justify-between">
-        <CardTitle className="text-base font-medium leading-none">{task.title}</CardTitle>
-        {(canFullyEdit || isAssignee) && (
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          {isBulkMode && onToggleSelect && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => onToggleSelect(task.id)}
+              className="mt-1"
+            />
+          )}
+          <CardTitle className="text-base font-medium leading-none flex-1">{task.title}</CardTitle>
+        </div>
+        {(canFullyEdit || isAssignee) && !isBulkMode && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-6 w-6">

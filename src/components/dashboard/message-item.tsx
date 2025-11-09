@@ -13,6 +13,7 @@ import {
   Reply, 
   Smile, 
   Trash2,
+  Edit,
   Image as ImageIcon,
   FileText
 } from 'lucide-react';
@@ -42,7 +43,9 @@ interface ChatMessage {
     text: string;
   } | null;
   reactions?: Record<string, string[]>;
-  readBy?: string[];
+  readBy?: Record<string, Timestamp>;
+  edited?: boolean;
+  editedAt?: Timestamp;
 }
 
 interface MessageItemProps {
@@ -53,6 +56,7 @@ interface MessageItemProps {
   onReply?: (message: ChatMessage) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onDelete?: (messageId: string) => void;
+  onEdit?: (messageId: string) => void;
   showAvatar?: boolean;
 }
 
@@ -66,11 +70,13 @@ export function MessageItem({
   onReply,
   onReact,
   onDelete,
+  onEdit,
   showAvatar = true,
 }: MessageItemProps) {
   const [showReactions, setShowReactions] = useState(false);
-  const isRead = message.readBy?.includes(userProfile?.uid || '') || false;
-  const isDelivered = message.readBy && message.readBy.length > 0;
+  const isRead = message.readBy && userProfile?.uid && message.readBy[userProfile.uid] ? true : false;
+  const readCount = message.readBy ? Object.keys(message.readBy).length : 0;
+  const isDelivered = readCount > 0;
 
   const getInitials = (name?: string | null) => {
     if (!name) return 'U';
@@ -158,18 +164,26 @@ export function MessageItem({
           {message.text && (
             <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
           )}
+          {message.edited && (
+            <p className={cn('text-xs mt-1', isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+              (edited)
+            </p>
+          )}
         </div>
 
         <div className={cn('flex items-center gap-2 text-xs text-muted-foreground', isOwn && 'flex-row-reverse')}>
           <span>{formatTime(message.timestamp)}</span>
           {isOwn && (
-            <span>
+            <span className="flex items-center gap-1">
               {isRead ? (
-                <CheckCheck className="h-3 w-3 text-primary" />
+                <CheckCheck className="h-3 w-3 text-primary" title="Read" />
               ) : isDelivered ? (
-                <CheckCheck className="h-3 w-3" />
+                <CheckCheck className="h-3 w-3" title="Delivered" />
               ) : (
-                <Check className="h-3 w-3" />
+                <Check className="h-3 w-3" title="Sent" />
+              )}
+              {readCount > 0 && (
+                <span className="text-[10px] opacity-70">({readCount})</span>
               )}
             </span>
           )}
@@ -209,6 +223,12 @@ export function MessageItem({
                 <DropdownMenuItem onSelect={() => setShowReactions(!showReactions)}>
                   <Smile className="h-4 w-4 mr-2" />
                   React
+                </DropdownMenuItem>
+              )}
+              {isOwn && onEdit && (
+                <DropdownMenuItem onSelect={() => onEdit(message.id)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
                 </DropdownMenuItem>
               )}
               {isOwn && onDelete && (

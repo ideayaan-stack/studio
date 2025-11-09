@@ -7,10 +7,13 @@ import { ChangeTaskStatusDialog } from '@/components/dashboard/change-task-statu
 import { AssignTaskDialog } from '@/components/dashboard/assign-task-dialog';
 import { useMemo, useState } from 'react';
 import type { Task, Team, UserProfile } from '@/lib/types';
-import { PlusCircle, AlertTriangle } from 'lucide-react';
+import { PlusCircle, AlertTriangle, Search, Filter, Download, ArrowUpDown, CheckSquare2, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth, useCollection } from '@/firebase';
-import { collection, query, where, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, doc, deleteDoc, writeBatch, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { canSeeAllTasks, canCreateTasks, isHead, isVolunteer, canSeeAllTeams } from '@/lib/permissions';
@@ -35,8 +38,16 @@ export default function TasksPage() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deleteTaskDialog, setDeleteTaskDialog] = useState<{ open: boolean; task: Task | null }>({ open: false, task: null });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'deadline' | 'created' | 'title'>('deadline');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [isBulkMode, setIsBulkMode] = useState(false);
   const userIsHead = isHead(userProfile);
   const userIsVolunteer = isVolunteer(userProfile);
+  const canManage = canSeeAllTasks(userProfile);
   
   const tasksQuery = useMemo(() => {
     if (!db) return null;
@@ -85,13 +96,55 @@ export default function TasksPage() {
   const { data: teams } = useCollection<Team>(teamsQuery);
   const { data: users } = useCollection<UserProfile>(usersQuery);
 
-  const displayedTasks = tasks || [];
+  // Filter and sort tasks
+  const filteredAndSortedTasks = useMemo(() => {
+    let filtered = tasks || [];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(task =>
+        task.title.toLowerCase().includes(query) ||
+        task.description.toLowerCase().includes(query) ||
+        task.assignee.name.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(task => task.status === statusFilter);
+    }
+
+    // Team filter
+    if (teamFilter !== 'all' && canManage) {
+      filtered = filtered.filter(task => task.teamId === teamFilter);
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'deadline':
+          comparison = a.deadline.toMillis() - b.deadline.toMillis();
+          break;
+        case 'created':
+          comparison = a.createdAt.toMillis() - b.createdAt.toMillis();
+          break;
+        case 'title':
+          comparison = a.title.localeCompare(b.title);
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  }, [tasks, searchQuery, statusFilter, teamFilter, sortBy, sortOrder, canManage]);
 
   const columns: { title: Task['status']; tasks: Task[] }[] = useMemo(() => [
-      { title: 'Pending', tasks: displayedTasks.filter((t) => t.status === 'Pending') },
-      { title: 'In Progress', tasks: displayedTasks.filter((t) => t.status === 'In Progress') },
-      { title: 'Completed', tasks: displayedTasks.filter((t) => t.status === 'Completed') },
-  ], [displayedTasks]);
+      { title: 'Pending', tasks: filteredAndSortedTasks.filter((t) => t.status === 'Pending') },
+      { title: 'In Progress', tasks: filteredAndSortedTasks.filter((t) => t.status === 'In Progress') },
+      { title: 'Completed', tasks: filteredAndSortedTasks.filter((t) => t.status === 'Completed') },
+  ], [filteredAndSortedTasks]);
 
   const canAddTask = canCreateTasks(userProfile);
 
@@ -135,6 +188,79 @@ export default function TasksPage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!db || selectedTaskIds.size === 0) return;
+    
+    try {
+      const batch = writeBatch(db);
+      selectedTaskIds.forEach(taskId => {
+        const taskRef = doc(db, 'tasks', taskId);
+        batch.delete(taskRef);
+      });
+      await batch.commit();
+      toast({
+        title: 'Tasks Deleted',
+        description: `${selectedTaskIds.size} task(s) have been deleted.`,
+      });
+      setSelectedTaskIds(new Set());
+      setIsBulkMode(false);
+    } catch (error: any) {
+      console.error('Error deleting tasks:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to delete tasks',
+        description: error.message || 'An unexpected error occurred.',
+      });
+    }
+  };
+
+  const handleBulkStatusChange = async (newStatus: Task['status']) => {
+    if (!db || selectedTaskIds.size === 0) return;
+    
+    try {
+      const batch = writeBatch(db);
+      selectedTaskIds.forEach(taskId => {
+        const taskRef = doc(db, 'tasks', taskId);
+        batch.update(taskRef, {
+          status: newStatus,
+          updatedAt: Timestamp.now(),
+        });
+      });
+      await batch.commit();
+      toast({
+        title: 'Tasks Updated',
+        description: `${selectedTaskIds.size} task(s) status changed to ${newStatus}.`,
+      });
+      setSelectedTaskIds(new Set());
+      setIsBulkMode(false);
+    } catch (error: any) {
+      console.error('Error updating tasks:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to update tasks',
+        description: error.message || 'An unexpected error occurred.',
+      });
+    }
+  };
+
+  const toggleTaskSelection = (taskId: string) => {
+    const newSet = new Set(selectedTaskIds);
+    if (newSet.has(taskId)) {
+      newSet.delete(taskId);
+    } else {
+      newSet.add(taskId);
+    }
+    setSelectedTaskIds(newSet);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTaskIds.size === filteredAndSortedTasks.length) {
+      setSelectedTaskIds(new Set());
+    } else {
+      setSelectedTaskIds(new Set(filteredAndSortedTasks.map(t => t.id)));
+    }
+  };
+
   // Component to show when a user is not assigned to a team
   if (!loading && !canSeeAllTasks(userProfile) && !userProfile?.teamId) {
     return (
@@ -162,8 +288,113 @@ export default function TasksPage() {
                       Add Task
                   </Button>
                   {canSeeAllTasks(userProfile) && <AiTaskSuggester />}
+                  {canManage && (
+                    <Button
+                      variant={isBulkMode ? "default" : "outline"}
+                      onClick={() => {
+                        setIsBulkMode(!isBulkMode);
+                        setSelectedTaskIds(new Set());
+                      }}
+                    >
+                      {isBulkMode ? 'Cancel' : 'Bulk Actions'}
+                    </Button>
+                  )}
               </div>
             )}
+        </div>
+
+        {/* Filters and Search */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+            {canManage && teams && teams.length > 0 && (
+              <Select value={teamFilter} onValueChange={setTeamFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Team" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  {teams.map(team => (
+                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+              const [by, order] = value.split('-');
+              setSortBy(by as 'deadline' | 'created' | 'title');
+              setSortOrder(order as 'asc' | 'desc');
+            }}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="deadline-asc">Deadline (Earliest)</SelectItem>
+                <SelectItem value="deadline-desc">Deadline (Latest)</SelectItem>
+                <SelectItem value="created-asc">Created (Oldest)</SelectItem>
+                <SelectItem value="created-desc">Created (Newest)</SelectItem>
+                <SelectItem value="title-asc">Title (A-Z)</SelectItem>
+                <SelectItem value="title-desc">Title (Z-A)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Bulk Actions Bar */}
+          {isBulkMode && canManage && (
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
+                  {selectedTaskIds.size === filteredAndSortedTasks.length ? (
+                    <CheckSquare2 className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Square className="h-4 w-4 mr-2" />
+                  )}
+                  Select All ({selectedTaskIds.size} selected)
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Select onValueChange={handleBulkStatusChange}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Change Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={selectedTaskIds.size === 0}
+                >
+                  Delete ({selectedTaskIds.size})
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 items-start">
@@ -197,6 +428,9 @@ export default function TasksPage() {
                                 onStatusChange={handleStatusChange}
                                 onAssign={handleAssignTask}
                                 onDelete={handleDeleteTask}
+                                isBulkMode={isBulkMode}
+                                isSelected={selectedTaskIds.has(task.id)}
+                                onToggleSelect={toggleTaskSelection}
                               />
                           ))}
                           {column.tasks.length === 0 && (

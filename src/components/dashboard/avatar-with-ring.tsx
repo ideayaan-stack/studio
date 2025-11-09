@@ -63,12 +63,16 @@ export function AvatarWithRing({
           </div>
         </div>
       ) : (
-        // Solid, dashed, or dotted ring for other roles
+        // Solid, dashed, or dotted ring for other roles with colored borders
         <div className={cn(
-          'rounded-full p-[3px]',
-          ringColor,
+          'rounded-full p-[3px] bg-background',
           thickness,
-          isSemiCore ? 'border-dashed' : isHead ? 'border-dotted' : 'border-solid'
+          isSemiCore ? 'border-dashed' : isHead ? 'border-dotted' : 'border-solid',
+          // Apply color classes based on role
+          role === 'Core' ? 'border-red-500' :
+          role === 'Semi-core' ? 'border-blue-500' :
+          role === 'Head' ? 'border-green-500' :
+          'border-gray-400'
         )}>
           <Avatar className={cn(sizeClass, 'ring-0')}>
             {src && <AvatarImage src={src} alt={alt || 'Avatar'} />}

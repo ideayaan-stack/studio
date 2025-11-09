@@ -6,7 +6,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Users, CheckSquare, Folder, Activity } from 'lucide-react';
+import { Users, CheckSquare, Folder, Activity, Video, Calendar, Clock } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import Link from 'next/link';
 import {
   Bar,
   BarChart,
@@ -17,7 +19,7 @@ import {
 } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useAuth, useCollection } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Team, Task, FileItem } from '@/lib/types';
@@ -91,6 +93,38 @@ export default function DashboardPage() {
   const isLoading = authLoading || teamsLoading || tasksLoading || filesLoading;
 
   // Calculate summary statistics
+  // Get user's team info
+  const userTeam = useMemo(() => {
+    if (!teams || !userProfile?.teamId) return null;
+    return teams.find(t => t.id === userProfile.teamId);
+  }, [teams, userProfile]);
+
+  // Get upcoming tasks for user
+  const upcomingTasks = useMemo(() => {
+    if (!tasks) return [];
+    const now = new Date();
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(now.getDate() + 7);
+    
+    return tasks
+      .filter(t => {
+        const deadline = t.deadline.toDate();
+        return deadline >= now && deadline <= sevenDaysFromNow && t.status !== 'Completed';
+      })
+      .sort((a, b) => a.deadline.toMillis() - b.deadline.toMillis())
+      .slice(0, 5);
+  }, [tasks]);
+
+  // Get upcoming meetings
+  const upcomingMeetings = useMemo(() => {
+    if (!meetings) return [];
+    const now = new Date();
+    return meetings
+      .filter(m => m.scheduledDate.toDate() >= now)
+      .sort((a, b) => a.scheduledDate.toMillis() - b.scheduledDate.toMillis())
+      .slice(0, 5);
+  }, [meetings]);
+
   const summaryData = useMemo(() => {
     const totalTasks = tasks?.length || 0;
     const completedTasks = tasks?.filter(t => t.status === 'Completed').length || 0;
@@ -240,6 +274,143 @@ export default function DashboardPage() {
             </ChartContainer>
           </CardContent>
         </Card>
+
+        {/* Enhanced Dashboard for Volunteers and Heads */}
+        {(userProfile?.role === 'Volunteer' || userProfile?.role === 'Head') && (
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Team Info */}
+            {userTeam && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Your Team
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-2xl font-bold">{userTeam.name}</p>
+                    {userTeam.description && (
+                      <p className="text-sm text-muted-foreground">{userTeam.description}</p>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {userTeam.members?.length || 0} member(s)
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pending Tasks */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckSquare className="h-5 w-5" />
+                  Pending Tasks
+                </CardTitle>
+                <CardDescription>Tasks assigned to you</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingTasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No pending tasks</p>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingTasks.map(task => (
+                      <div key={task.id} className="flex items-center justify-between p-2 rounded border">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Due: {format(task.deadline.toDate(), 'MMM dd, yyyy')}
+                          </p>
+                        </div>
+                        <Link href="/dashboard/tasks">
+                          <Button variant="ghost" size="sm">View</Button>
+                        </Link>
+                      </div>
+                    ))}
+                    {tasks && tasks.filter(t => t.status !== 'Completed').length > 5 && (
+                      <Link href="/dashboard/tasks">
+                        <Button variant="outline" className="w-full mt-2">
+                          View All Tasks
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upcoming Deadlines */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Upcoming Deadlines
+                </CardTitle>
+                <CardDescription>Tasks due in the next 7 days</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingTasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No upcoming deadlines</p>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingTasks.slice(0, 3).map(task => (
+                      <div key={task.id} className="flex items-center justify-between p-2 rounded border">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(task.deadline.toDate(), 'MMM dd, yyyy HH:mm')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upcoming Meetings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="h-5 w-5" />
+                  Upcoming Meetings
+                </CardTitle>
+                <CardDescription>Scheduled team meetings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingMeetings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No upcoming meetings</p>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingMeetings.map(meeting => (
+                      <div key={meeting.id} className="flex items-center justify-between p-2 rounded border">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{meeting.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(meeting.scheduledDate.toDate(), 'MMM dd, yyyy HH:mm')}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(meeting.meetingLink, '_blank')}
+                        >
+                          Join
+                        </Button>
+                      </div>
+                    ))}
+                    <Link href="/dashboard/meetings">
+                      <Button variant="outline" className="w-full mt-2">
+                        View All Meetings
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

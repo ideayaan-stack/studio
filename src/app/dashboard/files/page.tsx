@@ -26,11 +26,33 @@ import { canSeeAllFiles, canUploadToAnyTeam, isHead, canSeeAllTeams } from '@/li
 import { UploadFileDialog } from '@/components/dashboard/upload-file-dialog';
 import type { Team } from '@/lib/types';
 import Image from 'next/image';
-import { FileText as FileTextIcon } from 'lucide-react';
+import { FileText as FileTextIcon, Search, Download, Trash2, Edit2, Filter } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { deleteFileAction, renameFileAction } from '@/firebase/actions/file-actions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 export default function FilesPage() {
   const { db, userProfile } = useAuth();
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; file: FileItem | null }>({ open: false, file: null });
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; file: FileItem | null; newName: string }>({ open: false, file: null, newName: '' });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const { toast } = useToast();
 
   // Get teams for upload dialog
   const teamsQuery = useMemo(() => {
@@ -62,6 +84,26 @@ export default function FilesPage() {
 
   const { data: files, loading } = useCollection<FileItem>(filesQuery);
 
+  // Filter and search files
+  const filteredFiles = useMemo(() => {
+    let filtered = files || [];
+    
+    // Filter by team
+    if (selectedTeamFilter !== 'all') {
+      filtered = filtered.filter(file => file.teamId === selectedTeamFilter);
+    }
+    
+    // Search by name
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(file => 
+        file.name.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [files, selectedTeamFilter, searchQuery]);
+
   const canUpload = canUploadToAnyTeam(userProfile) || isHead(userProfile);
 
   // Component to show when a user is not assigned to a team
@@ -77,6 +119,72 @@ export default function FilesPage() {
     );
   }
 
+  const handleDelete = async () => {
+    if (!deleteDialog.file) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteFileAction(deleteDialog.file.id);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      toast({
+        title: 'File Deleted',
+        description: `File "${deleteDialog.file.name}" has been deleted.`,
+      });
+      setDeleteDialog({ open: false, file: null });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Delete Failed',
+        description: error.message || 'Failed to delete file.',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleRename = async () => {
+    if (!renameDialog.file || !renameDialog.newName.trim()) return;
+    setIsRenaming(true);
+    try {
+      const result = await renameFileAction(renameDialog.file.id, renameDialog.newName.trim());
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      toast({
+        title: 'File Renamed',
+        description: `File renamed to "${renameDialog.newName.trim()}".`,
+      });
+      setRenameDialog({ open: false, file: null, newName: '' });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Rename Failed',
+        description: error.message || 'Failed to rename file.',
+      });
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const handleDownload = (file: FileItem) => {
+    const url = getFileUrl(file.url);
+    if (url) {
+      if (url.startsWith('data:')) {
+        // Base64 file - create download link
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // External URL - open in new tab
+        window.open(url, '_blank');
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
        <div className="flex items-center justify-between">
@@ -90,6 +198,37 @@ export default function FilesPage() {
                   Upload File
               </Button>
             )}
+        </div>
+
+        {/* Search and Filter */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search files by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {canSeeAllTeams(userProfile) && teams && teams.length > 0 && (
+            <Select value={selectedTeamFilter} onValueChange={setSelectedTeamFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  <SelectValue placeholder="Filter by team" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Teams</SelectItem>
+                {teams.map(team => (
+                  <SelectItem key={team.id} value={team.id}>
+                    {team.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -112,7 +251,7 @@ export default function FilesPage() {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {files?.map((file) => (
+              {filteredFiles.map((file) => (
                 <Card key={file.id} className="shadow-sm hover:shadow-md transition-shadow flex flex-col">
                   <CardHeader className="p-0 relative">
                     <div className="w-full aspect-[4/3] bg-muted rounded-t-lg flex items-center justify-center">
@@ -126,11 +265,23 @@ export default function FilesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Download</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownload(file)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </DropdownMenuItem>
                             {(canSeeAllFiles(userProfile) || file.uploadedBy === userProfile?.uid) && (
                               <>
-                                <DropdownMenuItem>Rename</DropdownMenuItem>
-                                <DropdownMenuItem className='text-destructive focus:text-destructive focus:bg-destructive/10'>Delete</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setRenameDialog({ open: true, file, newName: file.name })}>
+                                  <Edit2 className="h-4 w-4 mr-2" />
+                                  Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  className='text-destructive focus:text-destructive focus:bg-destructive/10'
+                                  onClick={() => setDeleteDialog({ open: true, file })}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
                               </>
                             )}
                           </DropdownMenuContent>
@@ -157,9 +308,11 @@ export default function FilesPage() {
                 </Card>
               ))}
             </div>
-            {files?.length === 0 && !loading && (
+            {filteredFiles.length === 0 && !loading && (
                 <div className="col-span-full text-center text-muted-foreground py-10">
-                  No files found for your team.
+                  {searchQuery || selectedTeamFilter !== 'all' 
+                    ? 'No files match your search criteria.' 
+                    : 'No files found for your team.'}
                 </div>
               )}
           </>
@@ -172,6 +325,69 @@ export default function FilesPage() {
           defaultTeamId={userProfile?.teamId}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, file: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete File</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteDialog.file?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialog.open} onOpenChange={(open) => setRenameDialog({ open, file: null, newName: '' })}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Rename File</DialogTitle>
+            <DialogDescription>
+              Enter a new name for "{renameDialog.file?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="newName">File Name</Label>
+              <Input
+                id="newName"
+                value={renameDialog.newName}
+                onChange={(e) => setRenameDialog({ ...renameDialog, newName: e.target.value })}
+                placeholder="Enter new file name"
+                disabled={isRenaming}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRenameDialog({ open: false, file: null, newName: '' })}
+              disabled={isRenaming}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleRename}
+              disabled={isRenaming || !renameDialog.newName.trim()}
+            >
+              {isRenaming ? 'Renaming...' : 'Rename'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
