@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useRef, ReactNode } from 'react';
 import {
   collection,
   onSnapshot,
@@ -35,33 +35,70 @@ export const useCollection = <T,>(q: Query<DocumentData> | null) => {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const unsubscribeRef = useRef<Unsubscribe | null>(null);
+  const queryRef = useRef<Query<DocumentData> | null>(null);
+  const isSubscribedRef = useRef(false);
 
   useEffect(() => {
+    // Only update if query actually changed (by reference)
+    const queryChanged = queryRef.current !== q;
+    
+    if (!queryChanged && isSubscribedRef.current) {
+      return; // Query hasn't changed, don't re-subscribe
+    }
+
+    // Unsubscribe from previous query
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+      isSubscribedRef.current = false;
+    }
+
+    queryRef.current = q;
+
     if (!q) {
       setData([]);
       setLoading(false);
+      setError(null);
       return;
     }
     
     setLoading(true);
+    setError(null);
+    
+    let isMounted = true;
     const unsubscribe: Unsubscribe = onSnapshot(
       q,
       (querySnapshot) => {
-        const data = querySnapshot.docs.map(doc => ({
+        if (!isMounted) return;
+        
+        const newData = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         })) as T[];
-        setData(data);
+        
+        setData(newData);
         setLoading(false);
       },
       (err) => {
+        if (!isMounted) return;
         console.error("Error fetching collection: ", err);
         setError(err);
         setLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    unsubscribeRef.current = unsubscribe;
+    isSubscribedRef.current = true;
+
+    return () => {
+      isMounted = false;
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+        isSubscribedRef.current = false;
+      }
+    };
   }, [q]);
 
   return { data, loading, error };
