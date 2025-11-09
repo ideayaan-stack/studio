@@ -31,7 +31,7 @@ export async function uploadFile(file: File, resize: boolean = true, apiKey?: st
       }
 
       const { uploadToImgBB } = await import('./imgbb-storage');
-      const result = await uploadToImgBB(fileToUpload, imgbbApiKey);
+      const result = await uploadToImgBB(fileToUpload);
       
       if (result.success) {
         return {

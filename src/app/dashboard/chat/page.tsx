@@ -23,7 +23,7 @@ import {
   setDoc
 } from 'firebase/firestore';
 import { format } from 'date-fns';
-import type { Team } from '@/lib/types';
+import type { Team, UserProfile } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -106,7 +106,7 @@ export default function ChatPage() {
     if (!db) return null;
     return collection(db, 'users');
   }, [db]);
-  const { data: allUsers } = useCollection(usersQuery);
+  const { data: allUsers } = useCollection<UserProfile>(usersQuery);
 
   // Create chat list with community chat + team chats
   const chatList = useMemo(() => {

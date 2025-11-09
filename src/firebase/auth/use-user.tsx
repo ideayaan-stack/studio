@@ -29,7 +29,7 @@ interface AuthContextType {
   db: ReturnType<typeof initializeFirebase>['db'];
   storage: ReturnType<typeof initializeFirebase>['storage'];
   createUser: (email: string, password: string, displayName: string, role: Role, teamId?: string) => Promise<{ error?: string }>;
-  signIn: typeof signInWithEmailAndPassword;
+  signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
   isCoreAdmin: boolean; // Kept for backward compatibility, now uses role-based check
 }
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     db,
     storage,
     createUser,
-    signIn: (email, password) => signInWithEmailAndPassword(auth, email, password),
+    signIn: (email: string, password: string) => signInWithEmailAndPassword(auth, email, password),
     signOut,
     isCoreAdmin,
   };

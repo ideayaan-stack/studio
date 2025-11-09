@@ -70,13 +70,13 @@ export function ChatInput({
       let fileName: string | undefined;
 
       if (selectedImage) {
-        const result = await uploadFile(selectedImage, imgbbApiKey);
+        const result = await uploadFile(selectedImage, !!imgbbApiKey);
         if (result.error) throw new Error(result.error);
         imageUrl = result.url;
       }
 
       if (selectedFile) {
-        const result = await uploadFile(selectedFile, imgbbApiKey);
+        const result = await uploadFile(selectedFile, !!imgbbApiKey);
         if (result.error) throw new Error(result.error);
         fileUrl = result.url;
         fileName = selectedFile.name;

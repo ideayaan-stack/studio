@@ -23,7 +23,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import type { UserProfile, Team, Role } from '@/lib/types';
 import { canManagePermissions } from '@/lib/permissions';
 
-const roles: Role[] = ['Core', 'Semi-core', 'Head', 'Volunteer'];
+const roles = ['Core', 'Semi-core', 'Head', 'Volunteer', 'Unassigned'] as const;
 
 const editUserSchema = z.object({
   displayName: z.string().min(2, { message: 'Display name is required' }),

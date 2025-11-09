@@ -176,11 +176,11 @@ export function MessageItem({
           {isOwn && (
             <span className="flex items-center gap-1">
               {isRead ? (
-                <CheckCheck className="h-3 w-3 text-primary" title="Read" />
+                <CheckCheck className="h-3 w-3 text-primary" />
               ) : isDelivered ? (
-                <CheckCheck className="h-3 w-3" title="Delivered" />
+                <CheckCheck className="h-3 w-3" />
               ) : (
-                <Check className="h-3 w-3" title="Sent" />
+                <Check className="h-3 w-3" />
               )}
               {readCount > 0 && (
                 <span className="text-[10px] opacity-70">({readCount})</span>

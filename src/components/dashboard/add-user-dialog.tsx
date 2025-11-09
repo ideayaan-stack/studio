@@ -23,7 +23,7 @@ import type { Team, Role } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { canCreateUsers } from '@/lib/permissions';
 
-const roles: Role[] = ['Core', 'Semi-core', 'Head', 'Volunteer'];
+const roles = ['Core', 'Semi-core', 'Head', 'Volunteer', 'Unassigned'] as const;
 
 const addUserSchema = z.object({
     email: z.string().email({ message: 'Invalid email address' }),
