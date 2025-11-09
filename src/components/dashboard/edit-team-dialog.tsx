@@ -44,10 +44,6 @@ export function EditTeamDialog({ isOpen, setIsOpen, team, users }: EditTeamDialo
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!canCreateTeams(userProfile) || !team) {
-    return null;
-  }
-
   const {
     register,
     handleSubmit,
@@ -75,6 +71,10 @@ export function EditTeamDialog({ isOpen, setIsOpen, team, users }: EditTeamDialo
   }, [team, isOpen, reset]);
 
   const selectedHead = watch('head');
+
+  if (!canCreateTeams(userProfile) || !team) {
+    return null;
+  }
 
   const onSubmit: SubmitHandler<EditTeamInput> = async (data) => {
     if (!db || !team) return;
@@ -119,7 +119,7 @@ export function EditTeamDialog({ isOpen, setIsOpen, team, users }: EditTeamDialo
         title: 'Team Updated',
         description: `Team "${data.name}" has been updated.`,
       });
-      setIsOpen(false);
+      handleClose();
     } catch (error: any) {
       console.error(error);
       toast({
@@ -132,12 +132,18 @@ export function EditTeamDialog({ isOpen, setIsOpen, team, users }: EditTeamDialo
     }
   };
 
+  const handleClose = () => {
+    reset();
+    setIsOpen(false);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) {
-        reset();
+        handleClose();
+      } else {
+        setIsOpen(open);
       }
-      setIsOpen(open);
     }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -181,7 +187,7 @@ export function EditTeamDialog({ isOpen, setIsOpen, team, users }: EditTeamDialo
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>

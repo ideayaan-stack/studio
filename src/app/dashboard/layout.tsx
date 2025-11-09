@@ -35,7 +35,7 @@ export default function DashboardLayout({
           <SidebarFooter>
              <SidebarMenu>
                   <SidebarMenuItem>
-                      <Link href="#">
+                      <Link href="/dashboard/settings">
                           <SidebarMenuButton tooltip="Settings">
                               <Settings />
                               <span>Settings</span>

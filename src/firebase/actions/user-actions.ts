@@ -79,3 +79,81 @@ export async function createUserAction(params: CreateUserParams): Promise<{ erro
     return { error: message };
   }
 }
+
+/**
+ * Deletes a user from Firebase Authentication and Firestore.
+ * This is a server action and must be called from a client component.
+ * It uses the Firebase Admin SDK to delete both Auth user and Firestore document.
+ */
+export async function deleteUserAction(uid: string): Promise<{ error?: string }> {
+  try {
+    const adminApp = initializeFirebaseAdmin();
+    const auth = getAuth(adminApp);
+    const db = getFirestore(adminApp);
+
+    // 1. Delete user from Firebase Auth
+    await auth.deleteUser(uid);
+
+    // 2. Delete user profile from Firestore
+    await db.collection('users').doc(uid).delete();
+
+    return {};
+    
+  } catch (error: any) {
+    console.error('Error deleting user with server action:', error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack,
+    });
+    
+    let message = 'An unexpected error occurred while deleting the user.';
+    
+    if (error.message?.includes('service account') || error.message?.includes('FIREBASE_SERVICE_ACCOUNT_JSON')) {
+      message = 'Firebase Admin SDK is not configured. Please set up the service account credentials.';
+    } else if (error.code === 'auth/user-not-found') {
+      message = 'User not found. They may have already been deleted.';
+    } else if (error.message) {
+      message = error.message;
+    }
+    
+    return { error: message };
+  }
+}
+
+/**
+ * Updates a user's role in Firestore.
+ */
+export async function updateUserRoleAction(uid: string, role: Role): Promise<{ error?: string }> {
+  try {
+    const adminApp = initializeFirebaseAdmin();
+    const db = getFirestore(adminApp);
+
+    await db.collection('users').doc(uid).update({ role });
+
+    return {};
+    
+  } catch (error: any) {
+    console.error('Error updating user role:', error);
+    return { error: error.message || 'Failed to update user role.' };
+  }
+}
+
+/**
+ * Updates a user's team assignment in Firestore.
+ */
+export async function updateUserTeamAction(uid: string, teamId: string): Promise<{ error?: string }> {
+  try {
+    const adminApp = initializeFirebaseAdmin();
+    const db = getFirestore(adminApp);
+
+    const finalTeamId = teamId === 'unassigned' || teamId === '' ? '' : teamId;
+    await db.collection('users').doc(uid).update({ teamId: finalTeamId });
+
+    return {};
+    
+  } catch (error: any) {
+    console.error('Error updating user team:', error);
+    return { error: error.message || 'Failed to update user team.' };
+  }
+}

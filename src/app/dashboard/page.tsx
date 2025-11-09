@@ -209,7 +209,12 @@ export default function DashboardPage() {
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} accessibilityLayer>
+                <BarChart 
+                  data={chartData} 
+                  accessibilityLayer
+                  onMouseMove={undefined}
+                  onMouseLeave={undefined}
+                >
                   <XAxis
                     dataKey="status"
                     stroke="#888888"
@@ -224,8 +229,12 @@ export default function DashboardPage() {
                     axisLine={false}
                     tickFormatter={(value) => `${value}`}
                   />
-                   <Tooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
-                  <Bar dataKey="tasks" radius={[4, 4, 0, 0]} />
+                   <Tooltip 
+                     cursor={{fill: 'hsl(var(--muted))'}} 
+                     content={<ChartTooltipContent />}
+                     animationDuration={0}
+                   />
+                  <Bar dataKey="tasks" radius={[4, 4, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>

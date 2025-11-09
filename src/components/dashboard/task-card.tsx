@@ -1,6 +1,7 @@
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AvatarWithRing } from "@/components/dashboard/avatar-with-ring";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Calendar } from "lucide-react";
+import { MoreVertical, Calendar, Edit, ArrowRight, Trash2 } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { format } from "date-fns";
 import { useAuth } from "@/firebase";
@@ -16,9 +17,13 @@ import { canSeeAllTasks, isHead } from "@/lib/permissions";
 
 interface TaskCardProps {
   task: Task;
+  onEdit?: (task: Task) => void;
+  onStatusChange?: (task: Task) => void;
+  onAssign?: (task: Task) => void;
+  onDelete?: (task: Task) => void;
 }
 
-export function TaskCard({ task }: TaskCardProps) {
+export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusChange, onAssign, onDelete }: TaskCardProps) {
   const { userProfile } = useAuth();
   
   // Core, Semi-core, and heads can fully edit.
@@ -57,13 +62,41 @@ export function TaskCard({ task }: TaskCardProps) {
             <DropdownMenuContent align="end">
               {canFullyEdit ? (
                 <>
-                  <DropdownMenuItem>Edit Task</DropdownMenuItem>
-                  <DropdownMenuItem>Change Status</DropdownMenuItem>
-                  <DropdownMenuItem>Assign To...</DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive focus:text-destructive/90">Delete</DropdownMenuItem>
+                  {onEdit && (
+                    <DropdownMenuItem onSelect={() => onEdit(task)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Task
+                    </DropdownMenuItem>
+                  )}
+                  {onStatusChange && (
+                    <DropdownMenuItem onSelect={() => onStatusChange(task)}>
+                      Change Status
+                    </DropdownMenuItem>
+                  )}
+                  {onAssign && (
+                    <DropdownMenuItem onSelect={() => onAssign(task)}>
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      Assign To...
+                    </DropdownMenuItem>
+                  )}
+                  {onDelete && (
+                    <DropdownMenuItem 
+                      className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                      onSelect={() => onDelete(task)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </>
               ) : (
-                 <DropdownMenuItem>Change Status</DropdownMenuItem>
+                <>
+                  {onStatusChange && (
+                    <DropdownMenuItem onSelect={() => onStatusChange(task)}>
+                      Change Status
+                    </DropdownMenuItem>
+                  )}
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -79,13 +112,16 @@ export function TaskCard({ task }: TaskCardProps) {
           <Badge variant={getStatusVariant(task.status)}>{task.status}</Badge>
         </div>
         <div className="flex items-center gap-2 pt-2">
-            <Avatar className="h-6 w-6">
-                {task.assignee.avatarUrl && <AvatarImage src={task.assignee.avatarUrl} alt={task.assignee.name} data-ai-hint={task.assignee.avatarHint} />}
-                <AvatarFallback>{getInitials(task.assignee.name)}</AvatarFallback>
-            </Avatar>
+            <AvatarWithRing
+              src={task.assignee.avatarUrl}
+              alt={task.assignee.name}
+              fallback={getInitials(task.assignee.name)}
+              role={undefined} // Task assignee role not available in task data
+              size="sm"
+            />
             <span className="text-sm font-medium">{task.assignee.name}</span>
         </div>
       </CardContent>
     </Card>
   );
-}
+});

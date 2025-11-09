@@ -5,15 +5,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Loader2 } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Send, Loader2, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useCollection } from '@/firebase';
 import { collection, query, where, orderBy, addDoc, Timestamp } from 'firebase/firestore';
 import { canChatInAllTeams } from '@/lib/permissions';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import type { Team } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ChatMessage {
   id: string;
@@ -28,9 +29,11 @@ const COMMON_CHAT_ID = 'common';
 
 export default function ChatPage() {
   const { db, userProfile } = useAuth();
+  const isMobile = useIsMobile();
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isChatListOpen, setIsChatListOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +74,14 @@ export default function ChatPage() {
       setSelectedTeamId(chatList[0].id);
     }
   }, [chatList, selectedTeamId]);
+
+  // Close chat list on mobile when a chat is selected
+  const handleSelectChat = (chatId: string) => {
+    setSelectedTeamId(chatId);
+    if (isMobile) {
+      setIsChatListOpen(false);
+    }
+  };
 
   // Get messages for selected team
   const messagesQuery = useMemo(() => {
@@ -135,10 +146,57 @@ export default function ChatPage() {
     }
   };
 
+  const ChatListContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b">
+        <h1 className="text-xl font-headline font-bold">Inbox</h1>
+      </div>
+      <ScrollArea className="flex-1">
+        {chatList.map((chat) => {
+          const lastMessage = selectedTeamId === chat.id && messages && messages.length > 0 
+            ? messages[messages.length - 1] 
+            : null;
+          
+          return (
+            <div
+              key={chat.id}
+              onClick={() => handleSelectChat(chat.id)}
+              className={cn(
+                "p-4 flex items-start gap-4 cursor-pointer hover:bg-muted/50 transition-colors",
+                selectedTeamId === chat.id && 'bg-muted/80'
+              )}
+            >
+              <Avatar>
+                <AvatarFallback>
+                  {chat.isCommon ? '💬' : chat.name.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 truncate min-w-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="font-semibold truncate">{chat.name}</p>
+                  {lastMessage && (
+                    <p className="text-xs text-muted-foreground shrink-0">
+                      {formatMessageTime(lastMessage.timestamp)}
+                    </p>
+                  )}
+                </div>
+                {lastMessage && (
+                  <p className="text-sm text-muted-foreground truncate">
+                    {lastMessage.senderName}: {lastMessage.text}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </ScrollArea>
+    </div>
+  );
+
   if (teamsLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] h-[calc(100vh-11rem)] md:h-[calc(100vh-8rem)] rounded-lg border shadow-sm">
-        <div className="flex flex-col border-r p-4 space-y-4">
+        <div className="flex flex-col border-r p-4 space-y-4 hidden md:flex">
           <Skeleton className="h-8 w-24" />
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-16 w-full" />
@@ -153,65 +211,42 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] h-[calc(100vh-11rem)] md:h-[calc(100vh-8rem)] rounded-lg border shadow-sm overflow-hidden">
-      <div className="flex flex-col border-r">
-        <div className="p-4 border-b">
-          <h1 className="text-xl font-headline font-bold">Inbox</h1>
-        </div>
-        <ScrollArea className="flex-1">
-          {chatList.map((chat) => {
-            // Get last message for this chat (only if this chat is selected, otherwise we'd need separate queries)
-            // For now, show last message only for selected chat
-            const lastMessage = selectedTeamId === chat.id && messages && messages.length > 0 
-              ? messages[messages.length - 1] 
-              : null;
-            
-            return (
-              <div
-                key={chat.id}
-                onClick={() => setSelectedTeamId(chat.id)}
-                className={cn(
-                  "p-4 flex items-start gap-4 cursor-pointer hover:bg-muted/50 transition-colors",
-                  selectedTeamId === chat.id && 'bg-muted/80'
-                )}
-              >
-                <Avatar>
-                  <AvatarFallback>
-                    {chat.isCommon ? '💬' : chat.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 truncate min-w-0">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="font-semibold truncate">{chat.name}</p>
-                    {lastMessage && (
-                      <p className="text-xs text-muted-foreground shrink-0">
-                        {formatMessageTime(lastMessage.timestamp)}
-                      </p>
-                    )}
-                  </div>
-                  {lastMessage && (
-                    <p className="text-sm text-muted-foreground truncate">
-                      {lastMessage.senderName}: {lastMessage.text}
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </ScrollArea>
+    <div className="flex flex-col md:grid md:grid-cols-[300px_1fr] h-[calc(100vh-11rem)] md:h-[calc(100vh-8rem)] rounded-lg border shadow-sm overflow-hidden">
+      {/* Desktop: Always visible sidebar */}
+      <div className="hidden md:flex flex-col border-r">
+        <ChatListContent />
       </div>
-      <div className="flex flex-col h-full">
+
+      {/* Mobile: Sheet for chat list */}
+      {isMobile && (
+        <Sheet open={isChatListOpen} onOpenChange={setIsChatListOpen}>
+          <SheetContent side="left" className="w-[300px] p-0">
+            <ChatListContent />
+          </SheetContent>
+        </Sheet>
+      )}
+      <div className="flex flex-col h-full flex-1 min-w-0">
         {selectedChat ? (
           <>
             <div className="p-4 border-b flex items-center gap-4">
+              {isMobile && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="md:hidden"
+                  onClick={() => setIsChatListOpen(true)}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              )}
               <Avatar>
                 <AvatarFallback>
                   {selectedChat.isCommon ? '💬' : selectedChat.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <h2 className="font-semibold text-lg">{selectedChat.name}</h2>
-                <p className='text-sm text-muted-foreground'>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-semibold text-lg truncate">{selectedChat.name}</h2>
+                <p className='text-sm text-muted-foreground truncate'>
                   {selectedChat.isCommon 
                     ? 'Community chat with all members' 
                     : `Chat with ${selectedChat.name}`}

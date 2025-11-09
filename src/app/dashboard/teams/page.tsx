@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal, Users, User, Edit, AlertTriangle } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Users, User, Edit, AlertTriangle, Eye, UserCog, Users2, Trash2, Search } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +33,10 @@ import { AddUserDialog } from '@/components/dashboard/add-user-dialog';
 import { CreateTeamDialog } from '@/components/dashboard/create-team-dialog';
 import { EditUserDialog } from '@/components/dashboard/edit-user-dialog';
 import { EditTeamDialog } from '@/components/dashboard/edit-team-dialog';
+import { ChangeUserRoleDialog } from '@/components/dashboard/change-user-role-dialog';
+import { ChangeUserTeamDialog } from '@/components/dashboard/change-user-team-dialog';
+import { ViewUserDialog } from '@/components/dashboard/view-user-dialog';
+import { deleteUserAction } from '@/firebase/actions/user-actions';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -56,7 +60,6 @@ import {
   canSeeAllTeams,
   isHead,
 } from '@/lib/permissions';
-import { Search, Trash2 } from 'lucide-react';
 
 export default function TeamsPage() {
   const { db, userProfile, loading: authLoading } = useAuth();
@@ -65,10 +68,13 @@ export default function TeamsPage() {
   const [isCreateTeamDialogOpen, setCreateTeamDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [isEditTeamDialogOpen, setEditTeamDialogOpen] = useState(false);
+  const [isChangeRoleDialogOpen, setChangeRoleDialogOpen] = useState(false);
+  const [isChangeTeamDialogOpen, setChangeTeamDialogOpen] = useState(false);
+  const [isViewUserDialogOpen, setViewUserDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [deleteUserDialog, setDeleteUserDialog] = useState<{ open: boolean; user: UserProfile | null }>({ open: false, user: null });
-  const [deleteTeamDialog, setDeleteTeamDialog] = useState<{ open: boolean; team: Team | null }>({ open: false, team: null });
+  const [deleteUserDialog, setDeleteUserDialog] = useState<{ open: boolean; user: UserProfile | null; confirmText: string }>({ open: false, user: null, confirmText: '' });
+  const [deleteTeamDialog, setDeleteTeamDialog] = useState<{ open: boolean; team: Team | null; confirmText: string }>({ open: false, team: null, confirmText: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [teamFilter, setTeamFilter] = useState<string>('all');
@@ -161,33 +167,69 @@ export default function TeamsPage() {
   };
 
   const handleDeleteUser = async () => {
-    if (!db || !canManagePerms || !deleteUserDialog.user) return;
-    try {
-      // Note: This only deletes the Firestore document, not the Auth user
-      // To fully delete, you'd need to use Admin SDK
-      const userDocRef = doc(db, 'users', deleteUserDialog.user.uid);
-      await updateDoc(userDocRef, { 
-        role: 'Volunteer',
-        teamId: '',
-        // Or use deleteDoc if you have permission
+    if (!canManagePerms || !deleteUserDialog.user) return;
+    
+    // Security check: confirm text must match user's email
+    if (deleteUserDialog.confirmText !== deleteUserDialog.user.email) {
+      toast({ 
+        variant: "destructive", 
+        title: "Confirmation Failed", 
+        description: "Please type the user's email address to confirm deletion." 
       });
-      toast({ title: "Success", description: "User removed from system." });
-      setDeleteUserDialog({ open: false, user: null });
+      return;
+    }
+
+    try {
+      const result = await deleteUserAction(deleteUserDialog.user.uid);
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      toast({ 
+        title: "User Deleted", 
+        description: `${deleteUserDialog.user.displayName} has been permanently deleted from the system.` 
+      });
+      setDeleteUserDialog({ open: false, user: null, confirmText: '' });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      console.error('Error deleting user:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: error.message || "Failed to delete user. Please try again." 
+      });
     }
   };
 
   const handleDeleteTeam = async () => {
     if (!db || !canManage || !deleteTeamDialog.team) return;
+    
+    // Security check: confirm text must match team name
+    if (deleteTeamDialog.confirmText !== deleteTeamDialog.team.name) {
+      toast({ 
+        variant: "destructive", 
+        title: "Confirmation Failed", 
+        description: `Please type "${deleteTeamDialog.team.name}" to confirm deletion.` 
+      });
+      return;
+    }
+
     try {
       const { deleteDoc } = await import('firebase/firestore');
       const teamDocRef = doc(db, 'teams', deleteTeamDialog.team.id);
       await deleteDoc(teamDocRef);
-      toast({ title: "Success", description: "Team deleted." });
-      setDeleteTeamDialog({ open: false, team: null });
+      toast({ 
+        title: "Team Deleted", 
+        description: `Team "${deleteTeamDialog.team.name}" has been permanently deleted.` 
+      });
+      setDeleteTeamDialog({ open: false, team: null, confirmText: '' });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      console.error('Error deleting team:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: error.message || "Failed to delete team. Please try again." 
+      });
     }
   };
   
@@ -280,21 +322,29 @@ export default function TeamsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onSelect={() => {
+                                setSelectedTeam(team);
+                                // View team details - could add a view dialog later
+                              }}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
                               {canManage && (
                                 <DropdownMenuItem onSelect={() => {
                                   setSelectedTeam(team);
                                   setEditTeamDialogOpen(true);
                                 }}>
-                                  Edit
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit Team
                                 </DropdownMenuItem>
                               )}
                               {canManage && (
                                 <DropdownMenuItem 
                                   className='text-destructive focus:text-destructive focus:bg-destructive/10'
-                                  onSelect={() => setDeleteTeamDialog({ open: true, team })}
+                                  onSelect={() => setDeleteTeamDialog({ open: true, team, confirmText: '' })}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
+                                  Delete Team
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
@@ -416,18 +466,44 @@ export default function TeamsPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                <DropdownMenuItem onSelect={() => {
+                                                  setSelectedUser(user);
+                                                  setViewUserDialogOpen(true);
+                                                }}>
+                                                  <Eye className="h-4 w-4 mr-2" />
+                                                  View Details
+                                                </DropdownMenuItem>
                                                 {canManagePerms && (
                                                   <DropdownMenuItem onSelect={() => {
                                                     setSelectedUser(user);
                                                     setEditUserDialogOpen(true);
                                                   }}>
+                                                    <Edit className="h-4 w-4 mr-2" />
                                                     Edit User
+                                                  </DropdownMenuItem>
+                                                )}
+                                                {canManagePerms && (
+                                                  <DropdownMenuItem onSelect={() => {
+                                                    setSelectedUser(user);
+                                                    setChangeRoleDialogOpen(true);
+                                                  }}>
+                                                    <UserCog className="h-4 w-4 mr-2" />
+                                                    Change Role
+                                                  </DropdownMenuItem>
+                                                )}
+                                                {canManagePerms && (
+                                                  <DropdownMenuItem onSelect={() => {
+                                                    setSelectedUser(user);
+                                                    setChangeTeamDialogOpen(true);
+                                                  }}>
+                                                    <Users2 className="h-4 w-4 mr-2" />
+                                                    Change Team
                                                   </DropdownMenuItem>
                                                 )}
                                                 {canManagePerms && (
                                                   <DropdownMenuItem 
                                                     className='text-destructive focus:text-destructive focus:bg-destructive/10'
-                                                    onSelect={() => setDeleteUserDialog({ open: true, user })}
+                                                    onSelect={() => setDeleteUserDialog({ open: true, user, confirmText: '' })}
                                                   >
                                                     <Trash2 className="h-4 w-4 mr-2" />
                                                     Delete User
@@ -473,7 +549,12 @@ export default function TeamsPage() {
       {canManagePerms && (
         <EditUserDialog
           isOpen={isEditUserDialogOpen}
-          setIsOpen={setEditUserDialogOpen}
+          setIsOpen={(open) => {
+            setEditUserDialogOpen(open);
+            if (!open) {
+              setSelectedUser(null);
+            }
+          }}
           user={selectedUser}
           teams={teams || []}
         />
@@ -481,39 +562,120 @@ export default function TeamsPage() {
       {canManage && (
         <EditTeamDialog
           isOpen={isEditTeamDialogOpen}
-          setIsOpen={setEditTeamDialogOpen}
+          setIsOpen={(open) => {
+            setEditTeamDialogOpen(open);
+            if (!open) {
+              setSelectedTeam(null);
+            }
+          }}
           team={selectedTeam}
           users={users || []}
         />
       )}
-      <AlertDialog open={deleteUserDialog.open} onOpenChange={(open) => setDeleteUserDialog({ open, user: null })}>
+      <ChangeUserRoleDialog
+        isOpen={isChangeRoleDialogOpen}
+        setIsOpen={(open) => {
+          setChangeRoleDialogOpen(open);
+          if (!open) setSelectedUser(null);
+        }}
+        user={selectedUser}
+      />
+      <ChangeUserTeamDialog
+        isOpen={isChangeTeamDialogOpen}
+        setIsOpen={(open) => {
+          setChangeTeamDialogOpen(open);
+          if (!open) setSelectedUser(null);
+        }}
+        user={selectedUser}
+        teams={teams || []}
+      />
+      <ViewUserDialog
+        isOpen={isViewUserDialogOpen}
+        setIsOpen={(open) => {
+          setViewUserDialogOpen(open);
+          if (!open) setSelectedUser(null);
+        }}
+        user={selectedUser}
+        teams={teams || []}
+      />
+      <AlertDialog open={deleteUserDialog.open} onOpenChange={(open) => setDeleteUserDialog({ open, user: null, confirmText: '' })}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove {deleteUserDialog.user?.displayName} from the system? This action cannot be undone.
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to permanently delete <strong>{deleteUserDialog.user?.displayName}</strong>? 
+                This action cannot be undone and will:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                <li>Delete the user from Firebase Authentication</li>
+                <li>Remove all user data from Firestore</li>
+                <li>Remove the user from all teams</li>
+              </ul>
+              <p className="pt-2 font-semibold text-destructive">
+                Type the user's email address to confirm: <strong>{deleteUserDialog.user?.email}</strong>
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder={deleteUserDialog.user?.email || 'Email address'}
+              value={deleteUserDialog.confirmText}
+              onChange={(e) => setDeleteUserDialog({ ...deleteUserDialog, confirmText: e.target.value })}
+              className="w-full"
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogCancel onClick={() => setDeleteUserDialog({ open: false, user: null, confirmText: '' })}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteUser} 
+              disabled={deleteUserDialog.confirmText !== deleteUserDialog.user?.email}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={deleteTeamDialog.open} onOpenChange={(open) => setDeleteTeamDialog({ open, team: null })}>
+      <AlertDialog open={deleteTeamDialog.open} onOpenChange={(open) => setDeleteTeamDialog({ open, team: null, confirmText: '' })}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Team</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the team "{deleteTeamDialog.team?.name}"? This will remove all team data and cannot be undone.
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to permanently delete the team <strong>"{deleteTeamDialog.team?.name}"</strong>? 
+                This action cannot be undone and will:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                <li>Remove all team data from Firestore</li>
+                <li>Unassign all team members</li>
+                <li>Remove all team-related tasks and files</li>
+              </ul>
+              <p className="pt-2 font-semibold text-destructive">
+                Type the team name to confirm: <strong>{deleteTeamDialog.team?.name}</strong>
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder={deleteTeamDialog.team?.name || 'Team name'}
+              value={deleteTeamDialog.confirmText}
+              onChange={(e) => setDeleteTeamDialog({ ...deleteTeamDialog, confirmText: e.target.value })}
+              className="w-full"
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTeam} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogCancel onClick={() => setDeleteTeamDialog({ open: false, team: null, confirmText: '' })}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteTeam} 
+              disabled={deleteTeamDialog.confirmText !== deleteTeamDialog.team?.name}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

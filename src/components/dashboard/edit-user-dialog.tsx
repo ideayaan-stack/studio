@@ -45,10 +45,6 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!canManagePermissions(userProfile) || !user) {
-    return null;
-  }
-
   const {
     register,
     handleSubmit,
@@ -78,6 +74,10 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
   const selectedRole = watch('role');
   const isTeamRequired = selectedRole === 'Head' || selectedRole === 'Volunteer';
 
+  if (!canManagePermissions(userProfile) || !user) {
+    return null;
+  }
+
   const onSubmit: SubmitHandler<EditUserInput> = async (data) => {
     if (!db || !user) return;
     
@@ -98,7 +98,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
         title: 'User Updated',
         description: `${data.displayName}'s profile has been updated.`,
       });
-      setIsOpen(false);
+      handleClose();
     } catch (error: any) {
       console.error(error);
       toast({
@@ -111,12 +111,18 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
     }
   };
 
+  const handleClose = () => {
+    reset();
+    setIsOpen(false);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) {
-        reset();
+        handleClose();
+      } else {
+        setIsOpen(open);
       }
-      setIsOpen(open);
     }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -181,7 +187,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>

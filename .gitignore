@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# Firebase Studio / IDX
+.idx/
+
 # production
 /build
 
@@ -38,8 +41,21 @@ yarn-error.log*
 next-env.d.ts
 
 .genkit/*
+
+# environment variables
 .env*
+!.env.example
 
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# commit rewrite helper files (temporary)
+COMMIT_MESSAGES_MAP.txt
+COMMIT_REWRITE_GUIDE.md
+IMPROVED_COMMIT_MESSAGES.md
+QUICK_REWRITE_INSTRUCTIONS.md
+current-commits.txt
+rewrite-commits.ps1
+rewrite-commits.sh
+ORGANIZATION_COMPLETE.md
