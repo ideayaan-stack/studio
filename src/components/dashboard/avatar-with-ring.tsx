@@ -22,11 +22,11 @@ const sizeClasses = {
   xl: 'h-24 w-24',
 };
 
-const ringSizeClasses = {
-  sm: 'border-2',
-  md: 'border-2',
-  lg: 'border-3',
-  xl: 'border-4',
+const ringThickness = {
+  sm: 'border-[2px]',
+  md: 'border-[3px]',
+  lg: 'border-[4px]',
+  xl: 'border-[5px]',
 };
 
 export function AvatarWithRing({ 
@@ -40,24 +40,42 @@ export function AvatarWithRing({
 }: AvatarWithRingProps) {
   const ringColor = getRoleRingColor(role);
   const sizeClass = sizeClasses[size];
-  const ringSizeClass = ringSizeClasses[size];
+  const thickness = ringThickness[size];
+
+  // Determine ring style based on role
+  const isVolunteer = role === 'Volunteer';
+  const isSemiCore = role === 'Semi-core';
+  const isHead = role === 'Head';
 
   return (
     <div 
-      className={cn('relative inline-block', onClick && 'cursor-pointer', className)}
+      className={cn('relative inline-flex items-center justify-center', onClick && 'cursor-pointer', className)}
       onClick={onClick}
     >
-      <Avatar className={cn(sizeClass, 'ring-2 ring-background')}>
-        {src && <AvatarImage src={src} alt={alt || 'Avatar'} />}
-        <AvatarFallback className={sizeClass}>{fallback}</AvatarFallback>
-      </Avatar>
-      <div className={cn(
-        'absolute -bottom-0.5 -right-0.5 rounded-full border-2',
-        ringColor,
-        'pointer-events-none z-10',
-        size === 'sm' ? 'h-3 w-3' : size === 'md' ? 'h-4 w-4' : size === 'lg' ? 'h-5 w-5' : 'h-6 w-6',
-        'bg-background'
-      )} />
+      {isVolunteer ? (
+        // Gradient ring for Volunteer
+        <div className={cn('rounded-full p-[3px] bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500')}>
+          <div className="rounded-full bg-background p-[2px]">
+            <Avatar className={cn(sizeClass, 'ring-0')}>
+              {src && <AvatarImage src={src} alt={alt || 'Avatar'} />}
+              <AvatarFallback className={sizeClass}>{fallback}</AvatarFallback>
+            </Avatar>
+          </div>
+        </div>
+      ) : (
+        // Solid, dashed, or dotted ring for other roles
+        <div className={cn(
+          'rounded-full p-[3px]',
+          ringColor,
+          thickness,
+          isSemiCore ? 'border-dashed' : isHead ? 'border-dotted' : 'border-solid'
+        )}>
+          <Avatar className={cn(sizeClass, 'ring-0')}>
+            {src && <AvatarImage src={src} alt={alt || 'Avatar'} />}
+            <AvatarFallback className={sizeClass}>{fallback}</AvatarFallback>
+          </Avatar>
+        </div>
+      )}
     </div>
   );
 }

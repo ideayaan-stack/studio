@@ -37,23 +37,21 @@ export const useCollection = <T,>(q: Query<DocumentData> | null) => {
   const [error, setError] = useState<Error | null>(null);
   const unsubscribeRef = useRef<Unsubscribe | null>(null);
   const queryRef = useRef<Query<DocumentData> | null>(null);
-  const isSubscribedRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    // Only update if query actually changed (by reference)
-    const queryChanged = queryRef.current !== q;
-    
-    if (!queryChanged && isSubscribedRef.current) {
-      return; // Query hasn't changed, don't re-subscribe
+    // Compare query by reference - if same query object, don't re-subscribe
+    if (queryRef.current === q && unsubscribeRef.current) {
+      return;
     }
 
     // Unsubscribe from previous query
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
-      isSubscribedRef.current = false;
     }
 
+    // Store current query reference
     queryRef.current = q;
 
     if (!q) {
@@ -66,22 +64,28 @@ export const useCollection = <T,>(q: Query<DocumentData> | null) => {
     setLoading(true);
     setError(null);
     
-    let isMounted = true;
+    isMountedRef.current = true;
     const unsubscribe: Unsubscribe = onSnapshot(
       q,
       (querySnapshot) => {
-        if (!isMounted) return;
+        if (!isMountedRef.current) return;
         
         const newData = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         })) as T[];
         
-        setData(newData);
+        // Only update state if data actually changed
+        setData(prevData => {
+          if (JSON.stringify(prevData) === JSON.stringify(newData)) {
+            return prevData;
+          }
+          return newData;
+        });
         setLoading(false);
       },
       (err) => {
-        if (!isMounted) return;
+        if (!isMountedRef.current) return;
         console.error("Error fetching collection: ", err);
         setError(err);
         setLoading(false);
@@ -89,14 +93,12 @@ export const useCollection = <T,>(q: Query<DocumentData> | null) => {
     );
 
     unsubscribeRef.current = unsubscribe;
-    isSubscribedRef.current = true;
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
-        isSubscribedRef.current = false;
       }
     };
   }, [q]);

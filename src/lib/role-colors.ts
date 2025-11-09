@@ -13,31 +13,68 @@ export interface RoleColor {
 
 export const roleColors: Record<Role, RoleColor> = {
   'Core': {
-    ring: 'border-red-500',
+    ring: 'border-red-500 border-solid',
     bg: 'bg-red-500',
     text: 'text-red-500',
   },
   'Semi-core': {
-    ring: 'border-blue-500',
+    ring: 'border-blue-500 border-dashed',
     bg: 'bg-blue-500',
     text: 'text-blue-500',
   },
   'Head': {
-    ring: 'border-green-500',
+    ring: 'border-green-500 border-dotted',
     bg: 'bg-green-500',
     text: 'text-green-500',
   },
   'Volunteer': {
-    ring: 'border-purple-500',
+    ring: 'border-purple-500 border-solid',
     bg: 'bg-purple-500',
     text: 'text-purple-500',
   },
   'Unassigned': {
-    ring: 'border-gray-400',
+    ring: 'border-gray-400 border-solid',
     bg: 'bg-gray-400',
     text: 'text-gray-400',
   },
 };
+
+export type RingStyle = 'solid' | 'dashed' | 'dotted' | 'gradient';
+
+export interface RoleRingStyle {
+  style: RingStyle;
+  color: string;
+  gradient?: string;
+}
+
+export const roleRingStyles: Record<Role, RoleRingStyle> = {
+  'Core': {
+    style: 'solid',
+    color: 'border-red-500',
+  },
+  'Semi-core': {
+    style: 'dashed',
+    color: 'border-blue-500',
+  },
+  'Head': {
+    style: 'dotted',
+    color: 'border-green-500',
+  },
+  'Volunteer': {
+    style: 'gradient',
+    color: 'border-purple-500',
+    gradient: 'from-purple-500 via-pink-500 to-purple-500',
+  },
+  'Unassigned': {
+    style: 'solid',
+    color: 'border-gray-400',
+  },
+};
+
+export function getRoleRingStyle(role?: Role | null): RoleRingStyle {
+  if (!role) return roleRingStyles['Unassigned'];
+  return roleRingStyles[role] || roleRingStyles['Unassigned'];
+}
 
 /**
  * Get role color configuration

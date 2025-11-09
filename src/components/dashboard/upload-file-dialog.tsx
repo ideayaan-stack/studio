@@ -18,8 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload } from 'lucide-react';
 import type { Team } from '@/lib/types';
 import { canUploadToAnyTeam } from '@/lib/permissions';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { uploadFile } from '@/lib/file-storage';
 
 interface UploadFileDialogProps {
   isOpen: boolean;
@@ -29,11 +29,13 @@ interface UploadFileDialogProps {
 }
 
 export function UploadFileDialog({ isOpen, setIsOpen, teams, defaultTeamId }: UploadFileDialogProps) {
-  const { db, storage, userProfile } = useAuth();
+  const { db, userProfile } = useAuth();
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string>(defaultTeamId || '');
   const [isUploading, setIsUploading] = useState(false);
+
+  const imgbbApiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
 
   const canUploadAnyTeam = canUploadToAnyTeam(userProfile);
   const availableTeams = canUploadAnyTeam ? teams : teams.filter(t => t.id === userProfile?.teamId);
@@ -46,7 +48,7 @@ export function UploadFileDialog({ isOpen, setIsOpen, teams, defaultTeamId }: Up
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !selectedTeamId || !db || !storage || !userProfile) {
+    if (!selectedFile || !selectedTeamId || !db || !userProfile) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -57,28 +59,27 @@ export function UploadFileDialog({ isOpen, setIsOpen, teams, defaultTeamId }: Up
 
     setIsUploading(true);
     try {
-      // Generate unique filename
-      const timestamp = Date.now();
-      const sanitizedName = selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const fileName = `${timestamp}_${sanitizedName}`;
-      const filePath = `teams/${selectedTeamId}/${fileName}`;
+      // Upload file using free storage (ImgBB or base64)
+      // For faster uploads, skip resizing for small files
+      const shouldResize = selectedFile.size > 2 * 1024 * 1024; // Only resize files > 2MB
+      const result = await uploadFile(selectedFile, shouldResize, imgbbApiKey);
 
-      // Upload to Firebase Storage
-      const storageRef = ref(storage, filePath);
-      await uploadBytes(storageRef, selectedFile);
+      if (!result.success || result.error) {
+        throw new Error(result.error || 'Failed to upload file');
+      }
 
-      // Get download URL
-      const downloadURL = await getDownloadURL(storageRef);
-
-      // Create metadata in Firestore
-      await addDoc(collection(db, 'files'), {
+      // Create metadata in Firestore (don't wait for this to complete)
+      addDoc(collection(db, 'files'), {
         name: selectedFile.name,
         type: selectedFile.type,
         size: selectedFile.size,
-        url: downloadURL,
+        url: result.url || '',
         teamId: selectedTeamId,
         uploadedBy: userProfile.uid,
         uploadDate: Timestamp.now(),
+      }).catch(err => {
+        console.error('Error saving file metadata:', err);
+        // Still show success since file is uploaded
       });
 
       toast({

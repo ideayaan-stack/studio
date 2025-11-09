@@ -18,6 +18,9 @@ import { Loader2 } from 'lucide-react';
 import type { Task, Team, UserProfile } from '@/lib/types';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { canSeeAllTeams, canAssignTasks } from '@/lib/permissions';
+import { notifyTaskAssignment } from '@/lib/notifications';
+import { sendTaskAssignmentEmail } from '@/lib/email-service';
+import { format } from 'date-fns';
 
 interface AssignTaskDialogProps {
   isOpen: boolean;
@@ -95,6 +98,27 @@ export function AssignTaskDialog({ isOpen, setIsOpen, task, teams, users }: Assi
         title: 'Task Reassigned',
         description: `Task has been assigned to ${assignee.displayName || assignee.email}.`,
       });
+
+      // Send notifications
+      try {
+        // Browser notification
+        await notifyTaskAssignment(task.title, userProfile.displayName || 'Someone');
+        
+        // Email notification (if email is available)
+        if (assignee.email) {
+          const deadlineStr = format(task.deadline.toDate(), 'MMM dd, yyyy HH:mm');
+          await sendTaskAssignmentEmail(
+            assignee.email,
+            assignee.displayName || assignee.email,
+            task.title,
+            deadlineStr,
+            userProfile.displayName || 'Someone'
+          );
+        }
+      } catch (notifError) {
+        // Don't fail the assignment if notifications fail
+        console.error('Error sending notifications:', notifError);
+      }
 
       handleClose();
     } catch (error: any) {

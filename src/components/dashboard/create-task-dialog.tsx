@@ -23,6 +23,9 @@ import { Loader2 } from 'lucide-react';
 import type { Team, UserProfile } from '@/lib/types';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { canSeeAllTeams, canAssignTasks } from '@/lib/permissions';
+import { notifyTaskAssignment } from '@/lib/notifications';
+import { sendTaskAssignmentEmail } from '@/lib/email-service';
+import { format } from 'date-fns';
 
 const taskSchema = z.object({
   title: z.string().min(3, { message: 'Title must be at least 3 characters' }),
@@ -112,6 +115,27 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
         title: 'Task Created',
         description: `Task "${data.title}" has been created successfully.`,
       });
+
+      // Send notifications
+      try {
+        // Browser notification
+        await notifyTaskAssignment(data.title, userProfile.displayName || 'Someone');
+        
+        // Email notification (if email is available)
+        if (assignee.email) {
+          const deadlineStr = format(deadlineDate, 'MMM dd, yyyy HH:mm');
+          await sendTaskAssignmentEmail(
+            assignee.email,
+            assignee.displayName || assignee.email,
+            data.title,
+            deadlineStr,
+            userProfile.displayName || 'Someone'
+          );
+        }
+      } catch (notifError) {
+        // Don't fail the task creation if notifications fail
+        console.error('Error sending notifications:', notifError);
+      }
 
       reset();
       setIsOpen(false);

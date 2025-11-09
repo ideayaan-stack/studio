@@ -15,8 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { FileItem } from '@/lib/types';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import Image from 'next/image';
+import { getFileUrl } from '@/lib/file-storage';
 import { useAuth, useCollection } from '@/firebase';
 import { useMemo, useState } from 'react';
 import { collection, query, where } from 'firebase/firestore';
@@ -26,6 +25,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { canSeeAllFiles, canUploadToAnyTeam, isHead, canSeeAllTeams } from '@/lib/permissions';
 import { UploadFileDialog } from '@/components/dashboard/upload-file-dialog';
 import type { Team } from '@/lib/types';
+import Image from 'next/image';
+import { FileText as FileTextIcon } from 'lucide-react';
 
 export default function FilesPage() {
   const { db, userProfile } = useAuth();
@@ -114,14 +115,9 @@ export default function FilesPage() {
               {files?.map((file) => (
                 <Card key={file.id} className="shadow-sm hover:shadow-md transition-shadow flex flex-col">
                   <CardHeader className="p-0 relative">
-                    <Image
-                      src={PlaceHolderImages.find(p => p.id === 'file-preview-1')?.imageUrl!} // Placeholder until file previews are implemented
-                      alt={`Preview of ${file.name}`}
-                      width={400}
-                      height={300}
-                      data-ai-hint={'document paper'}
-                      className="object-cover rounded-t-lg aspect-[4/3]"
-                    />
+                    <div className="w-full aspect-[4/3] bg-muted rounded-t-lg flex items-center justify-center">
+                      <FileTextIcon className="h-12 w-12 text-muted-foreground" />
+                    </div>
                     <div className="absolute top-2 right-2">
                       <DropdownMenu>
                           <DropdownMenuTrigger asChild>

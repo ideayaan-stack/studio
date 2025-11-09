@@ -43,6 +43,7 @@ export interface Team {
   description: string;
   members: string[]; // array of user uids
   head: string; // user uid
+  iconURL?: string | null; // team icon URL (ImgBB or base64)
 }
 
 

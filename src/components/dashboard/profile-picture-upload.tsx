@@ -10,6 +10,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { processImageForStorage, getImageUrl } from '@/lib/image-storage';
+import { uploadFile, getFileUrl } from '@/lib/file-storage';
 
 export function ProfilePictureUpload() {
   const { db, userProfile, user } = useAuth();
@@ -19,6 +20,8 @@ export function ProfilePictureUpload() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const imgbbApiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
 
   useEffect(() => {
     if (userProfile?.displayName) {
@@ -45,12 +48,12 @@ export function ProfilePictureUpload() {
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Validate file size (max 32MB for ImgBB, 5MB for base64 fallback)
+    if (file.size > 32 * 1024 * 1024) {
       toast({
         variant: 'destructive',
         title: 'File Too Large',
-        description: 'Please select an image smaller than 5MB.',
+        description: 'Please select an image smaller than 32MB.',
       });
       return;
     }
@@ -72,13 +75,18 @@ export function ProfilePictureUpload() {
     setIsUploading(true);
 
     try {
-      // Process image (resize and convert to base64)
-      const base64Image = await processImageForStorage(file);
+      // Upload file using free storage (ImgBB or base64)
+      // For profile pictures, always resize for faster uploads
+      const result = await uploadFile(file, true);
 
-      // Update user profile in Firestore with base64 image
+      if (!result.success || result.error) {
+        throw new Error(result.error || 'Failed to upload image');
+      }
+
+      // Update user profile in Firestore
       const userDocRef = doc(db, 'users', user.uid);
       await updateDoc(userDocRef, {
-        photoURL: base64Image,
+        photoURL: result.url || '',
       });
 
       toast({
@@ -143,18 +151,18 @@ export function ProfilePictureUpload() {
     }
   };
 
-  const currentPhotoUrl = previewUrl || getImageUrl(userProfile?.photoURL) || null;
+  const currentPhotoUrl = previewUrl || getFileUrl(userProfile?.photoURL) || null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-6">
-        <Avatar className="h-24 w-24">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+        <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
           {currentPhotoUrl && <AvatarImage src={currentPhotoUrl} alt={userProfile?.displayName || 'Profile'} />}
-          <AvatarFallback className="text-lg">{getInitials(userProfile?.displayName)}</AvatarFallback>
+          <AvatarFallback className="text-base sm:text-lg">{getInitials(userProfile?.displayName)}</AvatarFallback>
         </Avatar>
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="profile-picture">Profile Picture</Label>
-          <div className="flex gap-2">
+        <div className="flex-1 space-y-2 w-full">
+          <Label htmlFor="profile-picture" className="text-sm sm:text-base">Profile Picture</Label>
+          <div className="flex flex-col sm:flex-row gap-2">
             <Input
               id="profile-picture"
               type="file"
@@ -169,6 +177,7 @@ export function ProfilePictureUpload() {
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
+              className="w-full sm:w-auto min-h-[44px]"
             >
               <Upload className="h-4 w-4 mr-2" />
               Choose File
@@ -180,6 +189,7 @@ export function ProfilePictureUpload() {
                   variant="outline"
                   onClick={handleUpload}
                   disabled={isUploading}
+                  className="w-full sm:w-auto min-h-[44px]"
                 >
                   {isUploading ? (
                     <>
@@ -196,6 +206,7 @@ export function ProfilePictureUpload() {
                   size="icon"
                   onClick={handleCancel}
                   disabled={isUploading}
+                  className="min-h-[44px] min-w-[44px]"
                 >
                   <X className="h-4 w-4" />
                 </Button>

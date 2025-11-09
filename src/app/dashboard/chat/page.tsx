@@ -5,16 +5,39 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Loader2, Menu } from 'lucide-react';
+import { Send, Loader2, Menu, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useCollection } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, Timestamp } from 'firebase/firestore';
-import { canChatInAllTeams } from '@/lib/permissions';
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  addDoc, 
+  updateDoc,
+  deleteDoc,
+  doc,
+  writeBatch,
+  Timestamp,
+  onSnapshot,
+  setDoc
+} from 'firebase/firestore';
+import { canChatInAllTeams, canManageTeams, isHead } from '@/lib/permissions';
 import { format } from 'date-fns';
 import type { Team } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { getFileUrl } from '@/lib/file-storage';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { TeamIconUpload } from '@/components/dashboard/team-icon-upload';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { canAccessTeamsPage } from '@/lib/permissions';
 
 interface ChatMessage {
   id: string;
@@ -34,8 +57,13 @@ export default function ChatPage() {
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isChatListOpen, setIsChatListOpen] = useState(false);
+  const [isTeamIconDialogOpen, setIsTeamIconDialogOpen] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ messageId: string; senderName: string; text: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get teams user can chat in
   const teamsQuery = useMemo(() => {
@@ -55,13 +83,13 @@ export default function ChatPage() {
 
   // Create chat list with community chat + team chats
   const chatList = useMemo(() => {
-    const list: Array<{ id: string; name: string; isCommon: boolean }> = [
+    const list: Array<{ id: string; name: string; isCommon: boolean; team?: Team }> = [
       { id: COMMON_CHAT_ID, name: 'Community', isCommon: true }
     ];
     
     if (teams) {
       teams.forEach(team => {
-        list.push({ id: team.id, name: team.name, isCommon: false });
+        list.push({ id: team.id, name: team.name, isCommon: false, team });
       });
     }
     
@@ -167,6 +195,9 @@ export default function ChatPage() {
               )}
             >
               <Avatar>
+                {chat.team?.iconURL && !chat.isCommon ? (
+                  <AvatarImage src={getFileUrl(chat.team.iconURL) || undefined} alt={chat.name} />
+                ) : null}
                 <AvatarFallback>
                   {chat.isCommon ? '💬' : chat.name.charAt(0)}
                 </AvatarFallback>
@@ -240,6 +271,9 @@ export default function ChatPage() {
                 </Button>
               )}
               <Avatar>
+                {selectedChat.team?.iconURL && !selectedChat.isCommon ? (
+                  <AvatarImage src={getFileUrl(selectedChat.team.iconURL) || undefined} alt={selectedChat.name} />
+                ) : null}
                 <AvatarFallback>
                   {selectedChat.isCommon ? '💬' : selectedChat.name.charAt(0)}
                 </AvatarFallback>
@@ -252,6 +286,20 @@ export default function ChatPage() {
                     : `Chat with ${selectedChat.name}`}
                 </p>
               </div>
+              {!selectedChat.isCommon && selectedChat.team && canAccessTeamsPage(userProfile) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Settings2 className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setIsTeamIconDialogOpen(true)}>
+                      Change Team Icon
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
             <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 md:p-6">
               {messagesLoading ? (
@@ -330,6 +378,20 @@ export default function ChatPage() {
           </div>
         )}
       </div>
+      
+      {/* Team Icon Upload Dialog */}
+      {selectedChat?.team && (
+        <Dialog open={isTeamIconDialogOpen} onOpenChange={setIsTeamIconDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Change Team Icon</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <TeamIconUpload team={selectedChat.team} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
