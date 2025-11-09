@@ -11,13 +11,13 @@ import { NotificationSettings } from '@/components/dashboard/notification-settin
 import { TeamIconUpload } from '@/components/dashboard/team-icon-upload';
 import { User, Palette, Bell, Shield, Menu, Users, LogOut } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth, useCollection, signOut } from '@/firebase';
+import { useAuth, useCollection } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Team } from '@/lib/types';
 import { canSeeAllTeams, canAccessTeamsPage, isHead } from '@/lib/permissions';
 
 export default function SettingsPage() {
-  const { db, userProfile } = useAuth();
+  const { db, userProfile, signOut } = useAuth();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('profile');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
