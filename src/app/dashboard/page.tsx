@@ -7,8 +7,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Users, CheckSquare, Folder, Activity, Video, Calendar, Clock } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import {
   Bar,
   BarChart,
@@ -90,6 +90,24 @@ export default function DashboardPage() {
   const { data: tasks, loading: tasksLoading } = useCollection<Task>(tasksQuery);
   const { data: files, loading: filesLoading } = useCollection<FileItem>(filesQuery);
 
+  // Get meetings for dashboard
+  const meetingsQuery = useMemo(() => {
+    if (!db) return null;
+    if (canSeeAllTeams(userProfile)) {
+      return query(collection(db, 'meetings'), orderBy('scheduledDate', 'asc'));
+    }
+    if (userProfile?.teamId) {
+      return query(
+        collection(db, 'meetings'),
+        where('teamId', '==', userProfile.teamId),
+        orderBy('scheduledDate', 'asc')
+      );
+    }
+    return null;
+  }, [db, userProfile]);
+
+  const { data: meetings } = useCollection(meetingsQuery);
+
   const isLoading = authLoading || teamsLoading || tasksLoading || filesLoading;
 
   // Calculate summary statistics
@@ -117,11 +135,11 @@ export default function DashboardPage() {
 
   // Get upcoming meetings
   const upcomingMeetings = useMemo(() => {
-    if (!meetings) return [];
+    if (!meetings || !Array.isArray(meetings)) return [];
     const now = new Date();
     return meetings
-      .filter(m => m.scheduledDate.toDate() >= now)
-      .sort((a, b) => a.scheduledDate.toMillis() - b.scheduledDate.toMillis())
+      .filter((m: any) => m.scheduledDate && m.scheduledDate.toDate && m.scheduledDate.toDate() >= now)
+      .sort((a: any, b: any) => a.scheduledDate.toMillis() - b.scheduledDate.toMillis())
       .slice(0, 5);
   }, [meetings]);
 
@@ -383,18 +401,18 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted-foreground">No upcoming meetings</p>
                 ) : (
                   <div className="space-y-2">
-                    {upcomingMeetings.map(meeting => (
+                    {upcomingMeetings.map((meeting: any) => (
                       <div key={meeting.id} className="flex items-center justify-between p-2 rounded border">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{meeting.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {format(meeting.scheduledDate.toDate(), 'MMM dd, yyyy HH:mm')}
+                            {meeting.scheduledDate && meeting.scheduledDate.toDate ? format(meeting.scheduledDate.toDate(), 'MMM dd, yyyy HH:mm') : 'Date TBD'}
                           </p>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => window.open(meeting.meetingLink, '_blank')}
+                          onClick={() => meeting.meetingLink && window.open(meeting.meetingLink, '_blank')}
                         >
                           Join
                         </Button>

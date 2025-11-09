@@ -22,7 +22,6 @@ import {
   onSnapshot,
   setDoc
 } from 'firebase/firestore';
-import { canChatInAllTeams, canManageTeams, isHead } from '@/lib/permissions';
 import { format } from 'date-fns';
 import type { Team } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,7 +38,6 @@ import { TeamIconUpload } from '@/components/dashboard/team-icon-upload';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { canAccessTeamsPage, canChatInAllTeams, isCore, isSemiCore } from '@/lib/permissions';
 import { MessageItem } from '@/components/dashboard/message-item';
-import { useCollection as useUsersCollection } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Palette } from 'lucide-react';
@@ -108,7 +106,7 @@ export default function ChatPage() {
     if (!db) return null;
     return collection(db, 'users');
   }, [db]);
-  const { data: allUsers } = useUsersCollection(usersQuery);
+  const { data: allUsers } = useCollection(usersQuery);
 
   // Create chat list with community chat + team chats
   const chatList = useMemo(() => {
@@ -225,7 +223,7 @@ export default function ChatPage() {
 
   // Mark messages as read when viewing
   useEffect(() => {
-    if (!db || !selectedTeamId || !userProfile || !messages) return;
+    if (!db || !selectedTeamId || !userProfile?.uid || !messages) return;
     
     const unreadMessages = messages.filter(msg => 
       !msg.deleted && 
@@ -237,9 +235,23 @@ export default function ChatPage() {
       const batch = writeBatch(db);
       unreadMessages.forEach(msg => {
         const msgRef = doc(db, 'messages', msg.id);
-        const readBy = msg.readBy || {};
-        readBy[userProfile.uid] = Timestamp.now();
-        batch.update(msgRef, { readBy });
+        // Only update if uid is valid and not empty
+        if (userProfile.uid && userProfile.uid.trim() !== '') {
+          // Clean existing readBy object to remove any empty keys
+          const existingReadBy = msg.readBy || {};
+          const cleanReadBy: Record<string, Timestamp> = {};
+          Object.keys(existingReadBy).forEach(key => {
+            if (key && key.trim() !== '') {
+              cleanReadBy[key] = existingReadBy[key];
+            }
+          });
+          // Add current user's read timestamp
+          cleanReadBy[userProfile.uid] = Timestamp.now();
+          // Only update if we have a valid readBy object
+          if (Object.keys(cleanReadBy).length > 0) {
+            batch.update(msgRef, { readBy: cleanReadBy });
+          }
+        }
       });
       batch.commit().catch(console.error);
     }
@@ -341,35 +353,38 @@ export default function ChatPage() {
   };
 
   const handleReact = async (messageId: string, emoji: string) => {
-    if (!db || !userProfile) return;
+    if (!db || !userProfile?.uid) return;
     
     const message = messages?.find(m => m.id === messageId);
     if (!message) return;
 
-    const reactions = message.reactions || {};
-    const userId = userProfile.uid;
-    
-    // Toggle reaction
-    if (reactions[emoji]?.includes(userId)) {
-      // Remove reaction
-      reactions[emoji] = reactions[emoji].filter(id => id !== userId);
-      if (reactions[emoji].length === 0) {
-        delete reactions[emoji];
-      }
-    } else {
-      // Add reaction
-      reactions[emoji] = [...(reactions[emoji] || []), userId];
-    }
-
     try {
       const msgRef = doc(db, 'messages', messageId);
-      await updateDoc(msgRef, { reactions });
+      const currentReactions = message.reactions || {};
+      const userId = userProfile.uid;
+      
+      // Create a new reactions object to avoid mutation
+      const newReactions: Record<string, string[]> = { ...currentReactions };
+      
+      // Toggle reaction
+      if (newReactions[emoji]?.includes(userId)) {
+        // Remove reaction
+        newReactions[emoji] = newReactions[emoji].filter(id => id !== userId);
+        if (newReactions[emoji].length === 0) {
+          delete newReactions[emoji];
+        }
+      } else {
+        // Add reaction
+        newReactions[emoji] = [...(newReactions[emoji] || []), userId];
+      }
+
+      await updateDoc(msgRef, { reactions: newReactions });
     } catch (error: any) {
       console.error('Error reacting to message:', error);
       toast({
         variant: 'destructive',
         title: 'Failed to react',
-        description: 'Please try again.',
+        description: error.message || 'Please try again.',
       });
     }
   };
@@ -539,7 +554,14 @@ export default function ChatPage() {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-6" style={{ backgroundImage: chatBackground ? `url(${chatBackground})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                <div 
+                  className="space-y-6" 
+                  style={chatBackground ? (
+                    chatBackground.startsWith('http') || chatBackground.startsWith('data:') 
+                      ? { backgroundImage: `url(${chatBackground})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
+                      : { backgroundColor: chatBackground }
+                  ) : undefined}
+                >
                   {messages?.map((message) => {
                     if (message.deleted) {
                       return (
@@ -687,11 +709,12 @@ export default function ChatPage() {
               ))}
             </div>
             <Input
-              placeholder="Or enter image URL"
-              value={chatBackground.startsWith('http') ? chatBackground : ''}
+              placeholder="Or enter image URL or color code (e.g., #f0f0f0)"
+              value={chatBackground && (chatBackground.startsWith('http') || chatBackground.startsWith('#')) ? chatBackground : ''}
               onChange={(e) => {
-                if (e.target.value.startsWith('http')) {
-                  setChatBackground(e.target.value);
+                const value = e.target.value;
+                if (value.startsWith('http') || value.startsWith('#') || value === '') {
+                  setChatBackground(value);
                 }
               }}
             />

@@ -17,11 +17,11 @@ service cloud.firestore {
     }
 
     function isRole(role) {
-      return getUserData().role == role;
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == role;
     }
 
     function isTeamMember(teamId) {
-      return getUserData().teamId == teamId;
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().teamId == teamId;
     }
     
     // USERS
@@ -70,18 +70,6 @@ service cloud.firestore {
 
       // Deleting tasks: Only Core, Semi-core, and Heads of the respective team can delete.
       allow delete: if isSignedIn() && (isRole('Core') || isRole('Semi-core') || (isRole('Head') && isTeamMember(resource.data.teamId)));
-    }
-
-    // FILES
-    match /files/{fileId} {
-       // Users can read file metadata if they are part of the team. Core/Semi-core can read all.
-      allow read: if isSignedIn() && (isRole('Core') || isRole('Semi-core') || isTeamMember(resource.data.teamId));
-      // Any signed-in user can create (upload) a file. Let's scope this to team members.
-      allow create: if isSignedIn() && (isTeamMember(request.resource.data.teamId) || isRole('Core') || isRole('Semi-core'));
-      // Only Core/Semi-core or the user who uploaded the file can delete it.
-      allow delete: if isSignedIn() && (isRole('Core') || isRole('Semi-core') || isUser(resource.data.uploadedBy));
-      // No updates to file metadata allowed for now to keep it simple.
-      allow update: if false;
     }
 
     // MESSAGES
