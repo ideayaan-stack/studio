@@ -102,10 +102,63 @@ service cloud.firestore {
         request.resource.data.teamId == 'common' ||
         isTeamMember(request.resource.data.teamId)
       );
-      // Only Core/Semi-core can delete messages
+      // Users can update their own messages (for editing), Core/Semi-core can update any
+      allow update: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        resource.data.senderId == request.auth.uid
+      );
+      // Users can delete their own messages, Core/Semi-core can delete any
+      allow delete: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        resource.data.senderId == request.auth.uid
+      );
+    }
+
+    // MEETINGS
+    match /meetings/{meetingId} {
+      // Users can read meetings for their team or all meetings if Core/Semi-core
+      allow read: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        resource.data.teamId == null ||
+        isTeamMember(resource.data.teamId)
+      );
+      // Only Core/Semi-core can create meetings
+      allow create: if isSignedIn() && (isRole('Core') || isRole('Semi-core'));
+      // Only Core/Semi-core can update meetings
+      allow update: if isSignedIn() && (isRole('Core') || isRole('Semi-core'));
+      // Only Core/Semi-core can delete meetings
       allow delete: if isSignedIn() && (isRole('Core') || isRole('Semi-core'));
-      // No updates to messages allowed
-      allow update: if false;
+    }
+
+    // FILES
+    match /files/{fileId} {
+      // Users can read files for their team or all files if Core/Semi-core
+      allow read: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        isTeamMember(resource.data.teamId)
+      );
+      // Users can create files for their team, Core/Semi-core can create for any team
+      allow create: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        isTeamMember(request.resource.data.teamId)
+      );
+      // Users can update files they uploaded, Core/Semi-core can update any
+      allow update: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        resource.data.uploadedBy == request.auth.uid
+      );
+      // Users can delete files they uploaded, Core/Semi-core can delete any
+      allow delete: if isSignedIn() && (
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        resource.data.uploadedBy == request.auth.uid
+      );
     }
   }
 }
