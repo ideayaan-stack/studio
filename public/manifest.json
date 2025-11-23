@@ -6,7 +6,7 @@
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
-  "theme_color": "#fb923c",
+  "theme_color": "#f97316",
   "scope": "/",
   "icons": [
     {
@@ -22,7 +22,10 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "business"],
+  "categories": [
+    "productivity",
+    "business"
+  ],
   "screenshots": [],
   "shortcuts": [
     {
@@ -30,7 +33,12 @@
       "short_name": "Dashboard",
       "description": "View dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
