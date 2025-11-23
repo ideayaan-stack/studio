@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { cn } from '../lib/utils';
 import type { Role } from '../lib/types';
@@ -56,7 +57,12 @@ export default function AvatarWithRing({
     const AvatarContent = () => (
         <View className={cn("rounded-full bg-orange-100 dark:bg-orange-900 items-center justify-center overflow-hidden", sizeClass)}>
             {photoURL ? (
-                <Image source={{ uri: photoURL }} className="w-full h-full" />
+                <Image
+                    source={{ uri: photoURL }}
+                    className="w-full h-full"
+                    contentFit="cover"
+                    transition={200}
+                />
             ) : (
                 <Text className={cn("font-bold text-orange-600 dark:text-orange-400", textSizeClass)}>
                     {displayName?.charAt(0).toUpperCase() || email?.charAt(0).toUpperCase() || 'U'}

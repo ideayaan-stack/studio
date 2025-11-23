@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
 import { useAuth } from '../../firebase/useAuth';
 import { useCollection } from '../../firebase/useCollection';
 import { collection, query, where, orderBy } from 'firebase/firestore';
@@ -9,6 +9,9 @@ import type { Task, Team, UserProfile } from '../../lib/types';
 import { format } from 'date-fns';
 import CreateTaskModal from '../../components/CreateTaskModal';
 import EditTaskModal from '../../components/EditTaskModal';
+import ChangeTaskStatusModal from '../../components/ChangeTaskStatusModal';
+import TaskDetailModal from '../../components/TaskDetailModal';
+import { FlashList } from '@shopify/flash-list';
 
 export default function TasksScreen() {
     const { user: authUser, userProfile, loading: authLoading, db } = useAuth();
@@ -21,6 +24,11 @@ export default function TasksScreen() {
     // Edit Modal State
     const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+    // Status & Detail Modal State
+    const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
     const userIsVolunteer = isVolunteer(userProfile);
 
@@ -76,6 +84,16 @@ export default function TasksScreen() {
         setIsEditTaskModalOpen(true);
     };
 
+    const handleTaskPress = (task: Task) => {
+        setSelectedTask(task);
+        setIsDetailModalOpen(true);
+    };
+
+    const handleStatusClick = (task: Task) => {
+        setSelectedTask(task);
+        setIsStatusModalOpen(true);
+    };
+
     if (isLoading) {
         return (
             <View className="flex-1 items-center justify-center bg-gray-50">
@@ -89,7 +107,11 @@ export default function TasksScreen() {
         const isOverdue = deadline < new Date() && item.status !== 'Completed';
 
         return (
-            <View className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-3 border border-gray-100 dark:border-gray-700">
+            <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => handleTaskPress(item)}
+                className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-3 border border-gray-100 dark:border-gray-700 mx-4"
+            >
                 <View className="flex-row justify-between items-start mb-2">
                     <Text className="text-lg font-semibold text-gray-900 dark:text-white flex-1 mr-2">{item.title}</Text>
                     <View className="flex-row items-center">
@@ -122,7 +144,7 @@ export default function TasksScreen() {
                         <Text className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[100px]">{item.assignee?.name || 'Unassigned'}</Text>
                     </View>
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 
@@ -164,25 +186,28 @@ export default function TasksScreen() {
                 </View>
             </View>
 
-            <FlatList
-                data={filteredTasks}
-                renderItem={renderTaskItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                ListEmptyComponent={
-                    <View className="items-center justify-center py-10">
-                        <CheckSquare size={48} color="#e5e7eb" />
-                        <Text className="text-gray-500 mt-4">No {activeStatus.toLowerCase()} tasks found</Text>
-                    </View>
-                }
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={['#f97316']}
-                    />
-                }
-            />
+            <View className="flex-1 w-full">
+                <FlashList
+                    data={filteredTasks}
+                    renderItem={renderTaskItem}
+                    estimatedItemSize={160}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={{ paddingVertical: 16, paddingBottom: 100 }}
+                    ListEmptyComponent={
+                        <View className="items-center justify-center py-10">
+                            <CheckSquare size={48} color="#e5e7eb" />
+                            <Text className="text-gray-500 mt-4">No {activeStatus.toLowerCase()} tasks found</Text>
+                        </View>
+                    }
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={['#f97316']}
+                        />
+                    }
+                />
+            </View>
 
             {/* FAB for Create */}
             {
@@ -212,6 +237,22 @@ export default function TasksScreen() {
                 task={editingTask}
                 teams={teams || []}
                 users={users || []}
+            />
+
+            <ChangeTaskStatusModal
+                visible={isStatusModalOpen}
+                onClose={() => setIsStatusModalOpen(false)}
+                task={selectedTask}
+            />
+
+            <TaskDetailModal
+                visible={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                task={selectedTask}
+                onStatusClick={() => {
+                    setIsDetailModalOpen(false);
+                    setTimeout(() => setIsStatusModalOpen(true), 300);
+                }}
             />
         </View >
     );

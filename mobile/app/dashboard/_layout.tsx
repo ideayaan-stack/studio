@@ -40,13 +40,7 @@ export default function DashboardLayout() {
                             tabBarIcon: ({ color }) => <Folder size={24} color={color} />,
                         }}
                     />
-                    <Tabs.Screen
-                        name="meetings"
-                        options={{
-                            title: 'Meetings',
-                            tabBarIcon: ({ color }) => <Video size={24} color={color} />,
-                        }}
-                    />
+
                     <Tabs.Screen
                         name="chat"
                         options={{
@@ -56,6 +50,13 @@ export default function DashboardLayout() {
                     />
                     <Tabs.Screen
                         name="settings"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    {/* Explicitly hide meetings from tabs */}
+                    <Tabs.Screen
+                        name="meetings"
                         options={{
                             href: null,
                         }}

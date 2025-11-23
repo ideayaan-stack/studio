@@ -1,12 +1,13 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, TextInput, Linking, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Linking, RefreshControl } from 'react-native';
 import { useAuth } from '../../firebase/useAuth';
 import { useCollection } from '../../firebase/useCollection';
 import { collection, query, where } from 'firebase/firestore';
 import { useMemo, useState } from 'react';
-import { FileText, Search, Filter, Download, MoreVertical, PlusCircle } from 'lucide-react-native';
+import { FileText, Search, Filter, Download, PlusCircle } from 'lucide-react-native';
 import { canSeeAllFiles, canSeeAllTeams } from '../../lib/permissions';
 import type { FileItem, Team } from '../../lib/types';
 import { format } from 'date-fns';
+import { FlashList } from '@shopify/flash-list';
 
 export default function FilesScreen() {
     const { user: authUser, userProfile, loading: authLoading, db } = useAuth();
@@ -75,7 +76,7 @@ export default function FilesScreen() {
 
     const renderFileItem = ({ item }: { item: FileItem }) => {
         return (
-            <View className="bg-white p-4 rounded-xl shadow-sm mb-3 border border-gray-100 flex-row items-center">
+            <View className="bg-white p-4 rounded-xl shadow-sm mb-3 border border-gray-100 flex-row items-center mx-4">
                 <View className="w-10 h-10 rounded-lg bg-blue-50 items-center justify-center mr-3">
                     <FileText size={20} color="#3b82f6" />
                 </View>
@@ -85,8 +86,6 @@ export default function FilesScreen() {
                         <Text className="text-xs text-gray-500 mr-2">
                             {format(new Date(item.uploadDate.seconds * 1000), 'MMM dd, yyyy')}
                         </Text>
-                        {/* In a real app, we'd look up the team name */}
-                        {/* <Text className="text-xs text-gray-400">Team A</Text> */}
                     </View>
                 </View>
                 <TouchableOpacity
@@ -121,25 +120,28 @@ export default function FilesScreen() {
                 </View>
             </View>
 
-            <FlatList
-                data={filteredFiles}
-                renderItem={renderFileItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                ListEmptyComponent={
-                    <View className="items-center justify-center py-10">
-                        <FileText size={48} color="#e5e7eb" />
-                        <Text className="text-gray-500 mt-4">No files found</Text>
-                    </View>
-                }
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={['#f97316']}
-                    />
-                }
-            />
+            <View className="flex-1 w-full">
+                <FlashList
+                    data={filteredFiles}
+                    renderItem={renderFileItem}
+                    estimatedItemSize={80}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={{ paddingVertical: 16, paddingBottom: 100 }}
+                    ListEmptyComponent={
+                        <View className="items-center justify-center py-10">
+                            <FileText size={48} color="#e5e7eb" />
+                            <Text className="text-gray-500 mt-4">No files found</Text>
+                        </View>
+                    }
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={['#f97316']}
+                        />
+                    }
+                />
+            </View>
 
             {/* FAB for Upload (Placeholder) */}
             <TouchableOpacity

@@ -65,7 +65,7 @@ export const useCollection = <T,>(q: Query<DocumentData> | null) => {
                 if (!isMountedRef.current) return;
                 console.error("Error fetching collection: ", err);
                 setError(err);
-                setLoading(false);
+                setLoading(false); // Ensure loading stops on error
             }
         );
 

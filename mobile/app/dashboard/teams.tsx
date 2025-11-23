@@ -1,17 +1,17 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
 import { useAuth } from '../../firebase/useAuth';
 import { useCollection } from '../../firebase/useCollection';
 import { collection, query, where } from 'firebase/firestore';
 import { useMemo, useState } from 'react';
-import { Users, Search, MoreHorizontal, PlusCircle, UserPlus, Edit2 } from 'lucide-react-native';
+import { Users, Search, PlusCircle, UserPlus, Edit2 } from 'lucide-react-native';
 import { canSeeAllTeams, isHead, canCreateTeams, canCreateUsers, canManageTeams, canManagePermissions } from '../../lib/permissions';
 import type { Team, UserProfile } from '../../lib/types';
-import { format } from 'date-fns';
 import CreateTeamModal from '../../components/CreateTeamModal';
 import AddUserModal from '../../components/AddUserModal';
 import EditTeamModal from '../../components/EditTeamModal';
 import EditUserModal from '../../components/EditUserModal';
 import AvatarWithRing from '../../components/AvatarWithRing';
+import { FlashList } from '@shopify/flash-list';
 
 export default function TeamsScreen() {
     const { user: authUser, userProfile, loading: authLoading, db } = useAuth();
@@ -92,7 +92,7 @@ export default function TeamsScreen() {
         const headUser = users?.find(u => u.uid === item.head);
 
         return (
-            <View className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-3 border border-gray-100 dark:border-gray-700">
+            <View className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-3 border border-gray-100 dark:border-gray-700 mx-4">
                 <View className="flex-row justify-between items-start mb-2">
                     <Text className="text-lg font-semibold text-gray-900 dark:text-white flex-1 mr-2">{item.name}</Text>
                     {canManageTeams(userProfile) && (
@@ -120,7 +120,7 @@ export default function TeamsScreen() {
         const team = teams?.find(t => t.id === item.teamId);
 
         return (
-            <View className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-3 border border-gray-100 dark:border-gray-700 flex-row items-center">
+            <View className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-3 border border-gray-100 dark:border-gray-700 flex-row items-center mx-4">
                 <AvatarWithRing
                     photoURL={item.photoURL}
                     displayName={item.displayName}
@@ -185,22 +185,25 @@ export default function TeamsScreen() {
                 </View>
             </View>
 
-            <FlatList
-                data={activeTab === 'teams' ? filteredTeams : filteredUsers}
-                renderItem={activeTab === 'teams' ? renderTeamItem : renderUserItem as any}
-                keyExtractor={(item: any) => item.id || item.uid}
-                contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                ListEmptyComponent={
-                    <Text className="text-center text-gray-500 mt-10">No results found</Text>
-                }
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={['#f97316']}
-                    />
-                }
-            />
+            <View className="flex-1 w-full">
+                <FlashList
+                    data={activeTab === 'teams' ? filteredTeams : filteredUsers}
+                    renderItem={activeTab === 'teams' ? renderTeamItem : renderUserItem as any}
+                    estimatedItemSize={100}
+                    keyExtractor={(item: any) => item.id || item.uid}
+                    contentContainerStyle={{ paddingVertical: 16, paddingBottom: 100 }}
+                    ListEmptyComponent={
+                        <Text className="text-center text-gray-500 mt-10">No results found</Text>
+                    }
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={['#f97316']}
+                        />
+                    }
+                />
+            </View>
 
             {/* FAB for Create */}
             {activeTab === 'teams' && canCreateTeams(userProfile) && (

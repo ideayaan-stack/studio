@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
-import { X, CheckSquare } from 'lucide-react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { X, Calendar, User, Flag, Plus } from 'lucide-react-native';
 import { useAuth } from '../firebase/useAuth';
-import { addDoc, collection, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
 import type { Team, UserProfile } from '../lib/types';
+import { sendTaskAssignmentEmail } from '../lib/email';
 
 interface CreateTaskModalProps {
     visible: boolean;
@@ -16,17 +19,21 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
     const { db, userProfile } = useAuth();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [selectedTeamId, setSelectedTeamId] = useState(userProfile?.teamId || '');
-    const [selectedAssigneeId, setSelectedAssigneeId] = useState('');
-    const [status, setStatus] = useState<'Pending' | 'In Progress' | 'Completed'>('Pending');
+    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+    const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('');
+    const [deadline, setDeadline] = useState(new Date());
+    const [showDatePicker, setShowDatePicker] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const teamUsers = selectedTeamId ? users.filter(u => u.teamId === selectedTeamId) : [];
-
     const handleSubmit = async () => {
-        if (!title.trim() || !description.trim() || !selectedTeamId) {
-            setError('Title, description, and team are required');
+        if (!db || !userProfile) return;
+        if (!title.trim()) {
+            setError('Title is required');
+            return;
+        }
+        if (!selectedTeamId) {
+            setError('Team is required');
             return;
         }
 
@@ -34,53 +41,54 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
         setError('');
 
         try {
-            if (!db) throw new Error('Database not initialized');
+            const assignee = users.find(u => u.uid === selectedAssigneeId);
 
-            let assigneeData = {
-                uid: '',
-                name: 'Unassigned',
-                avatarUrl: null,
-                avatarHint: '',
-            };
-
-            if (selectedAssigneeId) {
-                const assignee = users.find(u => u.uid === selectedAssigneeId);
-                if (assignee) {
-                    assigneeData = {
-                        uid: assignee.uid,
-                        name: assignee.displayName || 'Unknown',
-                        avatarUrl: assignee.photoURL || null,
-                        avatarHint: assignee.displayName || '',
-                    };
-                }
-            }
-
-            // Default deadline 7 days from now
-            const deadlineDate = new Date();
-            deadlineDate.setDate(deadlineDate.getDate() + 7);
-
-            await addDoc(collection(db, 'tasks'), {
+            const newTask = {
                 title: title.trim(),
                 description: description.trim(),
-                status,
+                status: 'Pending',
+                priority: 'Normal',
                 teamId: selectedTeamId,
-                assignee: assigneeData,
-                deadline: Timestamp.fromDate(deadlineDate),
+                assignee: assignee ? {
+                    uid: assignee.uid,
+                    name: assignee.displayName || assignee.email || 'Unknown',
+                    avatarUrl: assignee.photoURL || null,
+                } : null,
+                deadline: Timestamp.fromDate(deadline),
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
-            });
+                createdBy: userProfile.uid,
+            };
 
-            onClose();
+            await addDoc(collection(db, 'tasks'), newTask);
+
+            // Send Email Notification
+            if (assignee && assignee.email) {
+                await sendTaskAssignmentEmail(
+                    assignee.email,
+                    assignee.displayName || 'User',
+                    newTask.title,
+                    format(deadline, 'MMM dd, yyyy')
+                );
+            }
+
+            // Reset form
             setTitle('');
             setDescription('');
-            setStatus('Pending');
+            setSelectedTeamId('');
             setSelectedAssigneeId('');
+            setDeadline(new Date());
+            onClose();
         } catch (err: any) {
             setError(err.message || 'Failed to create task');
         } finally {
             setIsLoading(false);
         }
     };
+
+    const filteredUsers = selectedTeamId
+        ? users.filter(u => u.teamId === selectedTeamId)
+        : users;
 
     return (
         <Modal
@@ -90,12 +98,9 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
             onRequestClose={onClose}
         >
             <View className="flex-1 justify-end bg-black/50">
-                <View className="bg-white rounded-t-3xl p-6 h-[90%]">
+                <View className="bg-white dark:bg-gray-900 rounded-t-3xl p-6 h-[90%]">
                     <View className="flex-row justify-between items-center mb-6">
-                        <View className="flex-row items-center">
-                            <CheckSquare size={24} color="#f97316" />
-                            <Text className="text-xl font-bold ml-2 text-gray-900">Create New Task</Text>
-                        </View>
+                        <Text className="text-xl font-bold text-gray-900 dark:text-white">Create New Task</Text>
                         <TouchableOpacity onPress={onClose}>
                             <X size={24} color="#6b7280" />
                         </TouchableOpacity>
@@ -103,20 +108,22 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
 
                     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                         <View className="mb-4">
-                            <Text className="text-sm font-medium text-gray-700 mb-1">Title *</Text>
+                            <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Title *</Text>
                             <TextInput
-                                className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-900"
-                                placeholder="e.g., Design event poster"
+                                className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-base text-gray-900 dark:text-white"
+                                placeholder="e.g., Update Homepage Design"
+                                placeholderTextColor="#9ca3af"
                                 value={title}
                                 onChangeText={setTitle}
                             />
                         </View>
 
                         <View className="mb-4">
-                            <Text className="text-sm font-medium text-gray-700 mb-1">Description *</Text>
+                            <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</Text>
                             <TextInput
-                                className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-900 min-h-[100px]"
-                                placeholder="Describe the task..."
+                                className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-base text-gray-900 dark:text-white min-h-[100px]"
+                                placeholder="Add details about the task..."
+                                placeholderTextColor="#9ca3af"
                                 value={description}
                                 onChangeText={setDescription}
                                 multiline
@@ -125,18 +132,18 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
                         </View>
 
                         <View className="mb-4">
-                            <Text className="text-sm font-medium text-gray-700 mb-2">Team *</Text>
+                            <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assign Team *</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
                                 {teams.map(team => (
                                     <TouchableOpacity
                                         key={team.id}
                                         onPress={() => {
                                             setSelectedTeamId(team.id);
-                                            setSelectedAssigneeId('');
+                                            setSelectedAssigneeId(''); // Reset assignee when team changes
                                         }}
-                                        className={`mr-3 px-4 py-2 rounded-full border ${selectedTeamId === team.id ? 'bg-orange-50 border-orange-500' : 'bg-white border-gray-200'}`}
+                                        className={`mr-3 px-4 py-2 rounded-full border ${selectedTeamId === team.id ? 'bg-orange-50 border-orange-500' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}
                                     >
-                                        <Text className={selectedTeamId === team.id ? 'text-orange-600 font-medium' : 'text-gray-600'}>
+                                        <Text className={selectedTeamId === team.id ? 'text-orange-600 font-medium' : 'text-gray-600 dark:text-gray-400'}>
                                             {team.name}
                                         </Text>
                                     </TouchableOpacity>
@@ -145,45 +152,48 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
                         </View>
 
                         <View className="mb-4">
-                            <Text className="text-sm font-medium text-gray-700 mb-2">Assign To (Optional)</Text>
-                            {selectedTeamId ? (
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                            <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignee</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                                {filteredUsers.map(user => (
                                     <TouchableOpacity
-                                        onPress={() => setSelectedAssigneeId('')}
-                                        className={`mr-3 px-4 py-2 rounded-full border ${!selectedAssigneeId ? 'bg-orange-50 border-orange-500' : 'bg-white border-gray-200'}`}
+                                        key={user.uid}
+                                        onPress={() => setSelectedAssigneeId(user.uid)}
+                                        className={`mr-3 px-4 py-2 rounded-full border flex-row items-center ${selectedAssigneeId === user.uid ? 'bg-orange-50 border-orange-500' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}
                                     >
-                                        <Text className={!selectedAssigneeId ? 'text-orange-600 font-medium' : 'text-gray-600'}>Unassigned</Text>
+                                        <User size={14} color={selectedAssigneeId === user.uid ? '#ea580c' : '#6b7280'} />
+                                        <Text className={`ml-2 ${selectedAssigneeId === user.uid ? 'text-orange-600 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
+                                            {user.displayName || user.email?.split('@')[0]}
+                                        </Text>
                                     </TouchableOpacity>
-                                    {teamUsers.map(user => (
-                                        <TouchableOpacity
-                                            key={user.uid}
-                                            onPress={() => setSelectedAssigneeId(user.uid)}
-                                            className={`mr-3 px-4 py-2 rounded-full border ${selectedAssigneeId === user.uid ? 'bg-orange-50 border-orange-500' : 'bg-white border-gray-200'}`}
-                                        >
-                                            <Text className={selectedAssigneeId === user.uid ? 'text-orange-600 font-medium' : 'text-gray-600'}>
-                                                {user.displayName || user.email}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                            ) : (
-                                <Text className="text-gray-500 italic">Select a team first</Text>
-                            )}
+                                ))}
+                                {filteredUsers.length === 0 && (
+                                    <Text className="text-gray-400 italic ml-2">Select a team to see members</Text>
+                                )}
+                            </ScrollView>
                         </View>
 
                         <View className="mb-6">
-                            <Text className="text-sm font-medium text-gray-700 mb-2">Status</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-                                {['Pending', 'In Progress', 'Completed'].map(s => (
-                                    <TouchableOpacity
-                                        key={s}
-                                        onPress={() => setStatus(s as any)}
-                                        className={`mr-3 px-4 py-2 rounded-full border ${status === s ? 'bg-orange-50 border-orange-500' : 'bg-white border-gray-200'}`}
-                                    >
-                                        <Text className={status === s ? 'text-orange-600 font-medium' : 'text-gray-600'}>{s}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+                            <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Deadline</Text>
+                            <TouchableOpacity
+                                onPress={() => setShowDatePicker(true)}
+                                className="flex-row items-center bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3"
+                            >
+                                <Calendar size={20} color="#6b7280" />
+                                <Text className="ml-2 text-gray-900 dark:text-white">
+                                    {format(deadline, 'MMM dd, yyyy')}
+                                </Text>
+                            </TouchableOpacity>
+                            {showDatePicker && (
+                                <DateTimePicker
+                                    value={deadline}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, selectedDate) => {
+                                        setShowDatePicker(false);
+                                        if (selectedDate) setDeadline(selectedDate);
+                                    }}
+                                />
+                            )}
                         </View>
 
                         {error ? (
