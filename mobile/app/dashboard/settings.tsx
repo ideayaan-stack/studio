@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, Switch, ScrollView, Alert, Platform } from 'react-native';
 import { useAuth } from '../../firebase/useAuth';
 import { useRouter } from 'expo-router';
-import { User, Bell, Moon, LogOut, ChevronRight, Shield, HelpCircle, Info, Download } from 'lucide-react-native';
+import { User, Bell, Moon, LogOut, ChevronRight, Download } from 'lucide-react-native';
 import AvatarWithRing from '../../components/AvatarWithRing';
 import { useState, useEffect } from 'react';
 import { registerForPushNotificationsAsync, schedulePeriodicReminders } from '../../lib/notifications';
@@ -172,11 +172,11 @@ export default function SettingsScreen() {
                 )}
 
                 {/* Account */}
-                <View className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm">
+                <View className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm mb-6">
                     <Text className="px-4 py-3 text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-700/50">Account</Text>
 
                     <TouchableOpacity
-                        className="flex-row items-center justify-between px-4 py-4 border-b border-gray-100 dark:border-gray-700"
+                        className="flex-row items-center justify-between px-4 py-4"
                         onPress={() => setIsEditProfileModalOpen(true)}
                     >
                         <View className="flex-row items-center">
@@ -184,41 +184,6 @@ export default function SettingsScreen() {
                                 <User size={18} color="#22c55e" />
                             </View>
                             <Text className="text-base font-medium text-gray-900 dark:text-white">Edit Profile</Text>
-                        </View>
-                        <ChevronRight size={20} color="#9ca3af" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity className="flex-row items-center justify-between px-4 py-4">
-                        <View className="flex-row items-center">
-                            <View className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900 items-center justify-center mr-3">
-                                <Shield size={18} color="#ef4444" />
-                            </View>
-                            <Text className="text-base font-medium text-gray-900 dark:text-white">Privacy & Security</Text>
-                        </View>
-                        <ChevronRight size={20} color="#9ca3af" />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Support */}
-                <View className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm">
-                    <Text className="px-4 py-3 text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-700/50">Support</Text>
-
-                    <TouchableOpacity className="flex-row items-center justify-between px-4 py-4 border-b border-gray-100 dark:border-gray-700">
-                        <View className="flex-row items-center">
-                            <View className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900 items-center justify-center mr-3">
-                                <HelpCircle size={18} color="#f97316" />
-                            </View>
-                            <Text className="text-base font-medium text-gray-900 dark:text-white">Help Center</Text>
-                        </View>
-                        <ChevronRight size={20} color="#9ca3af" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity className="flex-row items-center justify-between px-4 py-4">
-                        <View className="flex-row items-center">
-                            <View className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 items-center justify-center mr-3">
-                                <Info size={18} color="#6b7280" />
-                            </View>
-                            <Text className="text-base font-medium text-gray-900 dark:text-white">About Ideayaan</Text>
                         </View>
                         <ChevronRight size={20} color="#9ca3af" />
                     </TouchableOpacity>

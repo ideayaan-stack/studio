@@ -6,7 +6,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Users, CheckSquare, Folder, Activity, Video, Calendar, Clock } from 'lucide-react';
+import { Users, CheckSquare, Folder, Activity, Video, Calendar, Clock, Download } from 'lucide-react';
+import { exportDataToExcel } from '@/lib/export';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,21 +28,21 @@ import { canSeeAllTeams, canSeeAllTasks, canSeeAllFiles } from '@/lib/permission
 import { format } from 'date-fns';
 
 const chartConfig = {
-    tasks: {
-      label: "Tasks",
-    },
-    pending: {
-        label: "Pending",
-        color: "hsl(var(--chart-4))",
-    },
-    progress: {
-        label: "In Progress",
-        color: "hsl(var(--chart-2))",
-    },
-    completed: {
-        label: "Completed",
-        color: "hsl(var(--chart-1))",
-    }
+  tasks: {
+    label: "Tasks",
+  },
+  pending: {
+    label: "Pending",
+    color: "hsl(var(--chart-4))",
+  },
+  progress: {
+    label: "In Progress",
+    color: "hsl(var(--chart-2))",
+  },
+  completed: {
+    label: "Completed",
+    color: "hsl(var(--chart-1))",
+  }
 }
 
 export default function DashboardPage() {
@@ -123,7 +124,7 @@ export default function DashboardPage() {
     const now = new Date();
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(now.getDate() + 7);
-    
+
     return tasks
       .filter(t => {
         const deadline = t.deadline.toDate();
@@ -149,12 +150,12 @@ export default function DashboardPage() {
     const pendingTasks = tasks?.filter(t => t.status === 'Pending').length || 0;
     const inProgressTasks = tasks?.filter(t => t.status === 'In Progress').length || 0;
     const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-    
+
     // Get latest file upload time
-    const latestFile = files?.sort((a, b) => 
+    const latestFile = files?.sort((a, b) =>
       b.uploadDate.seconds - a.uploadDate.seconds
     )[0];
-    const lastUploadText = latestFile 
+    const lastUploadText = latestFile
       ? `Last upload: ${format(new Date(latestFile.uploadDate.seconds * 1000), 'MMM dd, HH:mm')}`
       : 'No uploads yet';
 
@@ -163,8 +164,8 @@ export default function DashboardPage() {
         icon: Users,
         title: 'Active Teams',
         value: String(teams?.length || 0),
-        description: canSeeAllTeams(userProfile) 
-          ? `Total teams in system` 
+        description: canSeeAllTeams(userProfile)
+          ? `Total teams in system`
           : `Your team`,
       },
       {
@@ -192,7 +193,7 @@ export default function DashboardPage() {
     const pending = tasks?.filter(t => t.status === 'Pending').length || 0;
     const inProgress = tasks?.filter(t => t.status === 'In Progress').length || 0;
     const completed = tasks?.filter(t => t.status === 'Completed').length || 0;
-    
+
     return [
       { status: 'Pending', tasks: pending, fill: 'var(--color-pending)' },
       { status: 'In Progress', tasks: inProgress, fill: 'var(--color-progress)' },
@@ -232,6 +233,14 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
+        {(canSeeAllTeams(userProfile)) && (
+          <Button onClick={exportDataToExcel} className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Download className="mr-2 h-4 w-4" /> Export Data
+          </Button>
+        )}
+      </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {summaryData.map((item, index) => (
           <Card key={index} className="shadow-sm hover:shadow-md transition-shadow">
@@ -253,16 +262,16 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className='font-headline'>Task Status Overview</CardTitle>
             <CardDescription>
-              {canSeeAllTasks(userProfile) 
-                ? 'A summary of all tasks across teams.' 
+              {canSeeAllTasks(userProfile)
+                ? 'A summary of all tasks across teams.'
                 : 'A summary of tasks in your scope.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={chartData} 
+                <BarChart
+                  data={chartData}
                   accessibilityLayer
                   onMouseMove={undefined}
                   onMouseLeave={undefined}
@@ -281,11 +290,11 @@ export default function DashboardPage() {
                     axisLine={false}
                     tickFormatter={(value) => `${value}`}
                   />
-                   <Tooltip 
-                     cursor={{fill: 'hsl(var(--muted))'}} 
-                     content={<ChartTooltipContent />}
-                     animationDuration={0}
-                   />
+                  <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted))' }}
+                    content={<ChartTooltipContent />}
+                    animationDuration={0}
+                  />
                   <Bar dataKey="tasks" radius={[4, 4, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>

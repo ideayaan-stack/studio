@@ -5,7 +5,7 @@ import { useCollection } from '../../../firebase/useCollection';
 import { collection, query, where, orderBy, addDoc, Timestamp, doc, getDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { Send, ArrowLeft, Phone, Video, MoreVertical, Trash2, Edit2, Copy, Smile, Reply, X } from 'lucide-react-native';
+import { Send, ArrowLeft, MoreVertical, Trash2, Edit2, Copy, Smile, Reply, X } from 'lucide-react-native';
 import { format } from 'date-fns';
 import AvatarWithRing from '../../../components/AvatarWithRing';
 import * as Clipboard from 'expo-clipboard';
@@ -408,8 +408,6 @@ export default function ChatDetailScreen() {
                         </Text>
                     </View>
                     <View className="flex-row space-x-4 mr-2">
-                        <TouchableOpacity><Video size={24} color="#f97316" /></TouchableOpacity>
-                        <TouchableOpacity className="ml-4"><Phone size={22} color="#f97316" /></TouchableOpacity>
                         <TouchableOpacity className="ml-4"><MoreVertical size={24} color="#374151" /></TouchableOpacity>
                     </View>
                 </View>
