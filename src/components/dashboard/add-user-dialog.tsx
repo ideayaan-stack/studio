@@ -22,25 +22,26 @@ import { Loader2 } from 'lucide-react';
 import type { Team, Role } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { canCreateUsers } from '@/lib/permissions';
+import { sendWelcomeEmail } from '@/lib/email-service';
 
 const roles = ['Core', 'Semi-core', 'Head', 'Volunteer', 'Unassigned'] as const;
 
 const addUserSchema = z.object({
-    email: z.string().email({ message: 'Invalid email address' }),
-    password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
-    displayName: z.string().min(2, { message: 'Display name is required' }),
-    role: z.enum(roles, { required_error: 'Role is required' }),
-    teamId: z.string().optional(),
+  email: z.string().email({ message: 'Invalid email address' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
+  displayName: z.string().min(2, { message: 'Display name is required' }),
+  role: z.enum(roles, { required_error: 'Role is required' }),
+  teamId: z.string().optional(),
 }).refine((data) => {
-    // Team is required only for Head and Volunteer roles
-    // Core and Semi-core can be created without teams
-    if ((data.role === 'Head' || data.role === 'Volunteer') && !data.teamId) {
-        return false;
-    }
-    return true;
+  // Team is required only for Head and Volunteer roles
+  // Core and Semi-core can be created without teams
+  if ((data.role === 'Head' || data.role === 'Volunteer') && !data.teamId) {
+    return false;
+  }
+  return true;
 }, {
-    message: 'Team is required for Head and Volunteer roles',
-    path: ['teamId'],
+  message: 'Team is required for Head and Volunteer roles',
+  path: ['teamId'],
 });
 
 type AddUserInput = z.infer<typeof addUserSchema>;
@@ -83,8 +84,8 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
     setIsLoading(true);
     // Core and Semi-core can be created without teams
     // Head and Volunteer must have teams
-    const finalTeamId = (data.role === 'Core' || data.role === 'Semi-core' || !data.teamId || data.teamId === 'unassigned') 
-      ? '' 
+    const finalTeamId = (data.role === 'Core' || data.role === 'Semi-core' || !data.teamId || data.teamId === 'unassigned')
+      ? ''
       : data.teamId;
 
     try {
@@ -93,10 +94,37 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
       if (result?.error) {
         throw new Error(result.error);
       }
+
       toast({
         title: 'User Created',
         description: `${data.displayName} has been added to the system.`,
       });
+
+      // Send welcome email
+      try {
+        let teamName = 'Unassigned';
+        if (finalTeamId) {
+          const team = teams.find(t => t.id === finalTeamId);
+          if (team) {
+            teamName = team.name;
+          }
+        }
+
+        await sendWelcomeEmail(
+          data.email,
+          data.displayName,
+          data.role,
+          teamName
+        );
+      } catch (emailError) {
+        console.error('Failed to send welcome email:', emailError);
+        toast({
+          variant: 'destructive',
+          title: 'Email Warning',
+          description: 'User created, but failed to send welcome email.',
+        });
+      }
+
       reset();
       setIsOpen(false);
     } catch (error: any) {
@@ -110,7 +138,7 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
       setIsLoading(false);
     }
   };
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) {
@@ -143,52 +171,52 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Role *</Label>
-            <Select 
-              value={watch('role') || ''} 
+            <Select
+              value={watch('role') || ''}
               onValueChange={(value: Role) => setValue('role', value, { shouldValidate: true })}
             >
-                <SelectTrigger>
-                    <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                    {roles.map(role => (
-                        <SelectItem key={role} value={role}>{role}</SelectItem>
-                    ))}
-                </SelectContent>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                {roles.map(role => (
+                  <SelectItem key={role} value={role}>{role}</SelectItem>
+                ))}
+              </SelectContent>
             </Select>
             {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
           </div>
 
           <div className={cn("space-y-2 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-100')}>
-              <Label htmlFor="teamId">Team {isTeamRequired && '*'}</Label>
-              <Select 
-                value={watch('teamId') || 'unassigned'} 
-                onValueChange={(value) => setValue('teamId', value === 'unassigned' ? '' : value, { shouldValidate: true })}
-              >
-                  <SelectTrigger>
-                      <SelectValue placeholder={isTeamRequired ? "Select a team (required)" : "Select a team (optional)"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="unassigned">No Team</SelectItem>
-                      {teams
-                        .filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core')
-                        .map(team => (
-                          <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                        ))}
-                  </SelectContent>
-              </Select>
-              {errors.teamId && <p className="text-xs text-destructive">{errors.teamId.message}</p>}
-              {isTeamRequired && !watch('teamId') && (
-                <p className="text-xs text-muted-foreground">Team is required for Head and Volunteer roles</p>
-              )}
-              {!isTeamRequired && (
-                <p className="text-xs text-muted-foreground">Team can be assigned later</p>
-              )}
+            <Label htmlFor="teamId">Team {isTeamRequired && '*'}</Label>
+            <Select
+              value={watch('teamId') || 'unassigned'}
+              onValueChange={(value) => setValue('teamId', value === 'unassigned' ? '' : value, { shouldValidate: true })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={isTeamRequired ? "Select a team (required)" : "Select a team (optional)"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">No Team</SelectItem>
+                {teams
+                  .filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core')
+                  .map(team => (
+                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {errors.teamId && <p className="text-xs text-destructive">{errors.teamId.message}</p>}
+            {isTeamRequired && !watch('teamId') && (
+              <p className="text-xs text-muted-foreground">Team is required for Head and Volunteer roles</p>
+            )}
+            {!isTeamRequired && (
+              <p className="text-xs text-muted-foreground">Team can be assigned later</p>
+            )}
           </div>
 
           <DialogFooter>
             <Button type="submit" disabled={isLoading}>
-                {isLoading ? <Loader2 className="animate-spin" /> : 'Create User'}
+              {isLoading ? <Loader2 className="animate-spin" /> : 'Create User'}
             </Button>
           </DialogFooter>
         </form>
