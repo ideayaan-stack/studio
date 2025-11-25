@@ -15,6 +15,7 @@ import { useAuth, useCollection } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Team } from '@/lib/types';
 import { canSeeAllTeams, canAccessTeamsPage, isHead } from '@/lib/permissions';
+import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
   const { db, userProfile, signOut } = useAuth();
@@ -78,118 +79,152 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="space-y-4 md:space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-xl md:text-2xl font-headline font-bold">Settings</h1>
-        <p className="text-sm md:text-base text-muted-foreground">Manage your account settings and preferences.</p>
-      </div>
+    <div className="flex flex-col md:flex-row h-[calc(100vh-6rem)] gap-6 p-4 md:p-6">
+      <div className="w-full md:w-64 flex-shrink-0 space-y-4">
+        <div>
+          <h1 className="text-2xl font-headline font-bold">Settings</h1>
+          <p className="text-sm text-muted-foreground">Manage your preferences</p>
+        </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {isMobile ? (
-          <MobileTabsList />
-        ) : (
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical" className="w-full">
+          <div className="flex flex-col space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
-                <TabsTrigger key={tab.value} value={tab.value} className="gap-2 py-3">
+                <button
+                  key={tab.value}
+                  onClick={() => setActiveTab(tab.value)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                    activeTab === tab.value
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
                   <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </TabsTrigger>
+                  {tab.label}
+                </button>
               );
             })}
-          </TabsList>
-        )}
+          </div>
+        </Tabs>
+      </div>
 
-        <TabsContent value="profile" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile</CardTitle>
-              <CardDescription>Update your profile information and picture.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ProfilePictureUpload />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="appearance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>Customize the look and feel of the application.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ThemeToggle />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="notifications" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription>Manage your notification preferences.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <NotificationSettings />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {canManageTeamIcons && (
-          <TabsContent value="team" className="space-y-4">
+      <div className="flex-1 min-w-0 overflow-y-auto pr-2">
+        <Tabs value={activeTab} className="w-full space-y-6">
+          <TabsContent value="profile" className="mt-0 space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Team Icon</CardTitle>
-                <CardDescription>Manage team icons for teams you have access to.</CardDescription>
+                <CardTitle>Profile</CardTitle>
+                <CardDescription>Update your profile information and picture.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <ProfilePictureUpload />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="appearance" className="mt-0 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Appearance</CardTitle>
+                <CardDescription>Customize the look and feel of the application.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ThemeToggle />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="notifications" className="mt-0 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Notifications</CardTitle>
+                <CardDescription>Manage your notification preferences.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <NotificationSettings />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {canManageTeamIcons && (
+            <TabsContent value="team" className="mt-0 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Team Icons</CardTitle>
+                  <CardDescription>Manage icons for your teams.</CardDescription>
+                </CardHeader>
+                <CardContent>
                   {teams && teams.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {teams.map((team) => (
-                        <div key={team.id} className="space-y-2">
-                          <h3 className="text-sm font-medium">{team.name}</h3>
+                        <div key={team.id} className="p-4 border rounded-lg space-y-3 bg-muted/20">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <h3 className="font-medium truncate">{team.name}</h3>
+                          </div>
                           <TeamIconUpload team={team} />
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">
+                    <div className="text-center py-8 text-muted-foreground">
                       No teams available to manage.
-                    </p>
+                    </div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          <TabsContent value="account" className="mt-0 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Account Settings</CardTitle>
+                <CardDescription>Manage your account security and session.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Session</h3>
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Sign Out</p>
+                      <p className="text-sm text-muted-foreground">Sign out of your account on this device.</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={signOut}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <h3 className="text-sm font-medium text-destructive uppercase tracking-wider mb-4">Danger Zone</h3>
+                  <div className="p-4 border border-destructive/20 bg-destructive/5 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-destructive">Delete Account</p>
+                        <p className="text-sm text-muted-foreground">Permanently delete your account and all data.</p>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        disabled
+                        title="Contact administrator to delete account"
+                      >
+                        Delete Account
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-        )}
-
-        <TabsContent value="account" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Account</CardTitle>
-              <CardDescription>Manage your account settings and security.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  Additional account settings will be available here in the future.
-                </div>
-                <Button 
-                  variant="destructive" 
-                  onClick={signOut}
-                  className="w-full sm:w-auto"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </Tabs>
+      </div>
     </div>
   );
 }

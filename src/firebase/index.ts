@@ -18,13 +18,12 @@ let db: Firestore;
 let storage: FirebaseStorage;
 
 function initializeFirebase() {
-  if (getApps().length === 0) {
-    firebaseApp = initializeApp(firebaseConfig);
-    auth = getAuth(firebaseApp);
-    db = getFirestore(firebaseApp);
-    storage = getStorage(firebaseApp);
-  } else {
-    firebaseApp = getApps()[0];
+  if (!firebaseApp) {
+    if (getApps().length === 0) {
+      firebaseApp = initializeApp(firebaseConfig);
+    } else {
+      firebaseApp = getApps()[0];
+    }
     auth = getAuth(firebaseApp);
     db = getFirestore(firebaseApp);
     storage = getStorage(firebaseApp);

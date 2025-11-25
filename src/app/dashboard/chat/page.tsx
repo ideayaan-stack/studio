@@ -8,19 +8,20 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Loader2, Menu, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useCollection } from '@/firebase';
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  addDoc, 
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  addDoc,
   updateDoc,
   deleteDoc,
   doc,
   writeBatch,
   Timestamp,
   onSnapshot,
-  setDoc
+  setDoc,
+  limit
 } from 'firebase/firestore';
 import { format } from 'date-fns';
 import type { Team, UserProfile } from '@/lib/types';
@@ -113,13 +114,13 @@ export default function ChatPage() {
     const list: Array<{ id: string; name: string; isCommon: boolean; team?: Team }> = [
       { id: COMMON_CHAT_ID, name: 'Community', isCommon: true }
     ];
-    
+
     if (teams) {
       teams.forEach(team => {
         list.push({ id: team.id, name: team.name, isCommon: false, team });
       });
     }
-    
+
     return list;
   }, [teams]);
 
@@ -167,11 +168,17 @@ export default function ChatPage() {
     return query(
       collection(db, 'messages'),
       where('teamId', '==', selectedTeamId),
-      orderBy('timestamp', 'asc')
+      orderBy('timestamp', 'desc'),
+      limit(50)
     );
   }, [db, selectedTeamId]);
 
-  const { data: messages, loading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+  const { data: rawMessages, loading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+
+  const messages = useMemo(() => {
+    if (!rawMessages) return [];
+    return [...rawMessages].reverse();
+  }, [rawMessages]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -224,10 +231,10 @@ export default function ChatPage() {
   // Mark messages as read when viewing
   useEffect(() => {
     if (!db || !selectedTeamId || !userProfile?.uid || !messages) return;
-    
-    const unreadMessages = messages.filter(msg => 
-      !msg.deleted && 
-      msg.senderId !== userProfile.uid && 
+
+    const unreadMessages = messages.filter(msg =>
+      !msg.deleted &&
+      msg.senderId !== userProfile.uid &&
       (!msg.readBy || !msg.readBy[userProfile.uid])
     );
 
@@ -259,14 +266,14 @@ export default function ChatPage() {
 
   const handleDeleteMessage = async (messageId: string) => {
     if (!db || !userProfile) return;
-    
+
     const message = messages?.find(m => m.id === messageId);
     if (!message) return;
 
-    const canDelete = message.senderId === userProfile.uid || 
-                     isCore(userProfile) || 
-                     isSemiCore(userProfile);
-    
+    const canDelete = message.senderId === userProfile.uid ||
+      isCore(userProfile) ||
+      isSemiCore(userProfile);
+
     if (!canDelete) {
       toast({
         variant: 'destructive',
@@ -281,7 +288,7 @@ export default function ChatPage() {
 
   const confirmDeleteMessage = async () => {
     if (!db || !deleteDialog.messageId) return;
-    
+
     try {
       const msgRef = doc(db, 'messages', deleteDialog.messageId);
       await updateDoc(msgRef, {
@@ -312,7 +319,7 @@ export default function ChatPage() {
     const now = new Date();
     const messageTime = message.timestamp.toDate();
     const diffMinutes = (now.getTime() - messageTime.getTime()) / (1000 * 60);
-    
+
     if (diffMinutes > 15) {
       toast({
         variant: 'destructive',
@@ -328,7 +335,7 @@ export default function ChatPage() {
 
   const handleSaveEdit = async () => {
     if (!db || !editingMessageId || !editText.trim()) return;
-    
+
     try {
       const msgRef = doc(db, 'messages', editingMessageId);
       await updateDoc(msgRef, {
@@ -354,7 +361,7 @@ export default function ChatPage() {
 
   const handleReact = async (messageId: string, emoji: string) => {
     if (!db || !userProfile?.uid) return;
-    
+
     const message = messages?.find(m => m.id === messageId);
     if (!message) return;
 
@@ -362,10 +369,10 @@ export default function ChatPage() {
       const msgRef = doc(db, 'messages', messageId);
       const currentReactions = message.reactions || {};
       const userId = userProfile.uid;
-      
+
       // Create a new reactions object to avoid mutation
       const newReactions: Record<string, string[]> = { ...currentReactions };
-      
+
       // Toggle reaction
       if (newReactions[emoji]?.includes(userId)) {
         // Remove reaction
@@ -405,7 +412,7 @@ export default function ChatPage() {
     const date = timestamp.toDate();
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 24) {
       return format(date, 'HH:mm');
     } else if (diffInHours < 168) {
@@ -422,10 +429,10 @@ export default function ChatPage() {
       </div>
       <ScrollArea className="flex-1">
         {chatList.map((chat) => {
-          const lastMessage = selectedTeamId === chat.id && messages && messages.length > 0 
-            ? messages[messages.length - 1] 
+          const lastMessage = selectedTeamId === chat.id && messages && messages.length > 0
+            ? messages[messages.length - 1]
             : null;
-          
+
           return (
             <div
               key={chat.id}
@@ -502,9 +509,9 @@ export default function ChatPage() {
           <>
             <div className="p-4 border-b flex items-center gap-4">
               {isMobile && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="md:hidden"
                   onClick={() => setIsChatListOpen(true)}
                 >
@@ -522,8 +529,8 @@ export default function ChatPage() {
               <div className="flex-1 min-w-0">
                 <h2 className="font-semibold text-lg truncate">{selectedChat.name}</h2>
                 <p className='text-sm text-muted-foreground truncate'>
-                  {selectedChat.isCommon 
-                    ? 'Community chat with all members' 
+                  {selectedChat.isCommon
+                    ? 'Community chat with all members'
                     : `Chat with ${selectedChat.name}`}
                 </p>
               </div>
@@ -554,10 +561,10 @@ export default function ChatPage() {
                   ))}
                 </div>
               ) : (
-                <div 
-                  className="space-y-6" 
+                <div
+                  className="space-y-6"
                   style={chatBackground ? (
-                    chatBackground.startsWith('http') || chatBackground.startsWith('data:') 
+                    chatBackground.startsWith('http') || chatBackground.startsWith('data:')
                       ? { backgroundImage: `url(${chatBackground})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
                       : { backgroundColor: chatBackground }
                   ) : undefined}
@@ -574,7 +581,7 @@ export default function ChatPage() {
                     const isOwn = message.senderId === userProfile?.uid;
                     const senderProfile = allUsers?.find(u => u.uid === message.senderId);
                     const canDelete = isOwn || isCore(userProfile) || isSemiCore(userProfile);
-                    const canEdit = isOwn && !message.edited && 
+                    const canEdit = isOwn && !message.edited &&
                       (new Date().getTime() - message.timestamp.toDate().getTime()) < 15 * 60 * 1000;
 
                     if (editingMessageId === message.id) {
@@ -670,7 +677,7 @@ export default function ChatPage() {
           </div>
         )}
       </div>
-      
+
       {/* Team Icon Upload Dialog */}
       {selectedChat?.team && (
         <Dialog open={isTeamIconDialogOpen} onOpenChange={setIsTeamIconDialogOpen}>

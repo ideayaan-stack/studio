@@ -75,9 +75,9 @@ export default function FilesPage() {
     if (canSeeAllFiles(userProfile)) {
       return collection(db, 'files');
     }
-    // Team members see files associated with their team
+    // Team members see files associated with their team or shared with all teams
     if (userProfile?.teamId) {
-      return query(collection(db, 'files'), where('teamId', '==', userProfile.teamId));
+      return query(collection(db, 'files'), where('teamId', 'in', [userProfile.teamId, 'all']));
     }
     // Return null if no specific query can be formed (e.g., unassigned user)
     return null;
@@ -88,20 +88,20 @@ export default function FilesPage() {
   // Filter and search files
   const filteredFiles = useMemo(() => {
     let filtered = files || [];
-    
+
     // Filter by team
     if (selectedTeamFilter !== 'all') {
       filtered = filtered.filter(file => file.teamId === selectedTeamFilter);
     }
-    
+
     // Search by name
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(file => 
+      filtered = filtered.filter(file =>
         file.name.toLowerCase().includes(query)
       );
     }
-    
+
     return filtered;
   }, [files, selectedTeamFilter, searchQuery]);
 
@@ -110,13 +110,13 @@ export default function FilesPage() {
   // Component to show when a user is not assigned to a team
   if (!loading && !canSeeAllFiles(userProfile) && !userProfile?.teamId) {
     return (
-       <Alert variant="default" className="max-w-xl mx-auto">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>No Team Assigned</AlertTitle>
-          <AlertDescription>
-            You are not currently assigned to a team. You cannot view or upload files until an administrator assigns you to one. Please contact a Core team member.
-          </AlertDescription>
-        </Alert>
+      <Alert variant="default" className="max-w-xl mx-auto">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>No Team Assigned</AlertTitle>
+        <AlertDescription>
+          You are not currently assigned to a team. You cannot view or upload files until an administrator assigns you to one. Please contact a Core team member.
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -188,136 +188,136 @@ export default function FilesPage() {
 
   return (
     <div className="space-y-6">
-       <div className="flex items-center justify-between">
-            <div>
-                <h1 className="text-2xl font-headline font-bold">Files</h1>
-                <p className="text-muted-foreground">Access and manage all team documents.</p>
-            </div>
-            {canUpload && (
-              <Button size="sm" className="gap-1" onClick={() => setIsUploadDialogOpen(true)}>
-                  <PlusCircle className="h-4 w-4" />
-                  Upload File
-              </Button>
-            )}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-headline font-bold">Files</h1>
+          <p className="text-muted-foreground">Access and manage all team documents.</p>
         </div>
+        {canUpload && (
+          <Button size="sm" className="gap-1" onClick={() => setIsUploadDialogOpen(true)}>
+            <PlusCircle className="h-4 w-4" />
+            Upload File
+          </Button>
+        )}
+      </div>
 
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search files by name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          {canSeeAllTeams(userProfile) && teams && teams.length > 0 && (
-            <Select value={selectedTeamFilter} onValueChange={setSelectedTeamFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  <SelectValue placeholder="Filter by team" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Teams</SelectItem>
-                {teams.map(team => (
-                  <SelectItem key={team.id} value={team.id}>
-                    {team.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search files by name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
         </div>
-        {loading ? (
+        {canSeeAllTeams(userProfile) && teams && teams.length > 0 && (
+          <Select value={selectedTeamFilter} onValueChange={setSelectedTeamFilter}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                <SelectValue placeholder="Filter by team" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Teams</SelectItem>
+              {teams.map(team => (
+                <SelectItem key={team.id} value={team.id}>
+                  {team.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="shadow-sm flex flex-col">
+              <CardHeader className="p-0 relative">
+                <Skeleton className="w-full aspect-[4/3] rounded-t-lg" />
+              </CardHeader>
+              <CardContent className="p-4 flex-grow space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </CardContent>
+              <CardFooter className="p-4 pt-0 flex justify-between">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-4 w-1/4" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i} className="shadow-sm flex flex-col">
+            {filteredFiles.map((file) => (
+              <Card key={file.id} className="shadow-sm hover:shadow-md transition-shadow flex flex-col">
                 <CardHeader className="p-0 relative">
-                  <Skeleton className="w-full aspect-[4/3] rounded-t-lg" />
+                  <div className="w-full aspect-[4/3] bg-muted rounded-t-lg flex items-center justify-center">
+                    <FileTextIcon className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                  <div className="absolute top-2 right-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="icon" className="h-7 w-7 rounded-full bg-background/70 hover:bg-background">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleDownload(file)}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </DropdownMenuItem>
+                        {(canSeeAllFiles(userProfile) || file.uploadedBy === userProfile?.uid) && (
+                          <>
+                            <DropdownMenuItem onClick={() => setRenameDialog({ open: true, file, newName: file.name })}>
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className='text-destructive focus:text-destructive focus:bg-destructive/10'
+                              onClick={() => setDeleteDialog({ open: true, file })}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </CardHeader>
-                <CardContent className="p-4 flex-grow space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
+                <CardContent className="p-4 flex-grow">
+                  <CardTitle className="text-sm font-medium leading-normal flex items-start gap-2">
+                    <FileText className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <span className='truncate hover:text-clip'>{file.name}</span>
+                  </CardTitle>
                 </CardContent>
-                <CardFooter className="p-4 pt-0 flex justify-between">
-                   <Skeleton className="h-4 w-1/3" />
-                   <Skeleton className="h-4 w-1/4" />
+                <CardFooter className="p-4 pt-0 text-xs text-muted-foreground flex justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5" />
+                    {/* In a real app, you'd fetch the user's name from their UID */}
+                    <span>{file.uploadedBy.substring(0, 8)}...</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{format(new Date(file.uploadDate.seconds * 1000), 'yyyy-MM-dd')}</span>
+                  </div>
                 </CardFooter>
               </Card>
             ))}
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {filteredFiles.map((file) => (
-                <Card key={file.id} className="shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                  <CardHeader className="p-0 relative">
-                    <div className="w-full aspect-[4/3] bg-muted rounded-t-lg flex items-center justify-center">
-                      <FileTextIcon className="h-12 w-12 text-muted-foreground" />
-                    </div>
-                    <div className="absolute top-2 right-2">
-                      <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="secondary" size="icon" className="h-7 w-7 rounded-full bg-background/70 hover:bg-background">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleDownload(file)}>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </DropdownMenuItem>
-                            {(canSeeAllFiles(userProfile) || file.uploadedBy === userProfile?.uid) && (
-                              <>
-                                <DropdownMenuItem onClick={() => setRenameDialog({ open: true, file, newName: file.name })}>
-                                  <Edit2 className="h-4 w-4 mr-2" />
-                                  Rename
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  className='text-destructive focus:text-destructive focus:bg-destructive/10'
-                                  onClick={() => setDeleteDialog({ open: true, file })}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4 flex-grow">
-                    <CardTitle className="text-sm font-medium leading-normal flex items-start gap-2">
-                      <FileText className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0"/> 
-                      <span className='truncate hover:text-clip'>{file.name}</span>
-                    </CardTitle>
-                  </CardContent>
-                  <CardFooter className="p-4 pt-0 text-xs text-muted-foreground flex justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <User className="h-3.5 w-3.5" />
-                      {/* In a real app, you'd fetch the user's name from their UID */}
-                      <span>{file.uploadedBy.substring(0, 8)}...</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5" />
-                      <span>{format(new Date(file.uploadDate.seconds * 1000), 'yyyy-MM-dd')}</span>
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
+          {filteredFiles.length === 0 && !loading && (
+            <div className="col-span-full text-center text-muted-foreground py-10">
+              {searchQuery || selectedTeamFilter !== 'all'
+                ? 'No files match your search criteria.'
+                : 'No files found for your team.'}
             </div>
-            {filteredFiles.length === 0 && !loading && (
-                <div className="col-span-full text-center text-muted-foreground py-10">
-                  {searchQuery || selectedTeamFilter !== 'all' 
-                    ? 'No files match your search criteria.' 
-                    : 'No files found for your team.'}
-                </div>
-              )}
-          </>
-        )}
+          )}
+        </>
+      )}
       {canUpload && (
         <UploadFileDialog
           isOpen={isUploadDialogOpen}

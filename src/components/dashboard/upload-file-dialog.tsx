@@ -138,6 +138,9 @@ export function UploadFileDialog({ isOpen, setIsOpen, teams, defaultTeamId }: Up
                 <SelectValue placeholder="Select a team" />
               </SelectTrigger>
               <SelectContent>
+                {canUploadAnyTeam && (
+                  <SelectItem value="all">All Teams</SelectItem>
+                )}
                 {availableTeams.map(team => (
                   <SelectItem key={team.id} value={team.id}>
                     {team.name}

@@ -60,21 +60,21 @@ export const useCollection = <T,>(q: Query<DocumentData> | null) => {
       setError(null);
       return;
     }
-    
+
     setLoading(true);
     setError(null);
-    
+
     isMountedRef.current = true;
     const unsubscribe: Unsubscribe = onSnapshot(
       q,
       (querySnapshot) => {
         if (!isMountedRef.current) return;
-        
+
         const newData = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         })) as T[];
-        
+
         // Only update state if data actually changed
         setData(prevData => {
           if (JSON.stringify(prevData) === JSON.stringify(newData)) {
@@ -118,13 +118,19 @@ export const useDoc = <T,>(ref: DocumentReference<DocumentData> | null) => {
       setLoading(false);
       return;
     };
-    
+
     setLoading(true);
     const unsubscribe = onSnapshot(
       ref,
       (docSnap) => {
         if (docSnap.exists()) {
-          setData({ id: docSnap.id, ...docSnap.data() } as T);
+          const newData = { id: docSnap.id, ...docSnap.data() } as T;
+          setData(prevData => {
+            if (JSON.stringify(prevData) === JSON.stringify(newData)) {
+              return prevData;
+            }
+            return newData;
+          });
         } else {
           setData(null);
         }

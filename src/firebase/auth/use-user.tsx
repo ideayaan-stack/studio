@@ -58,16 +58,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return userProfileFromDb;
   }, [userProfileFromDb]);
 
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-        setUser(user);
-        setLoading(false);
+      console.log('onAuthStateChanged:', user?.uid);
+      setUser(user);
+      setLoading(false);
     });
 
     return () => unsubscribe();
   }, [auth]);
-  
+
   const createUser = async (email: string, password: string, displayName: string, role: Role, teamId?: string) => {
     // This is now a server action, so it doesn't affect client-side auth state
     return createUserAction({ email, password, displayName, role, teamId });
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   };
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     userProfile: userProfile || null,
     loading: loading || profileLoading,
@@ -88,7 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn: (email: string, password: string) => signInWithEmailAndPassword(auth, email, password),
     signOut,
     isCoreAdmin,
-  };
+  }), [user, userProfile, loading, profileLoading, db, storage, isCoreAdmin]);
+
+  // Debug logging for AuthProvider
+  // useEffect(() => {
+  //   console.log('AuthProvider updated:', { 
+  //     userUid: user?.uid, 
+  //     userProfileId: userProfile?.uid, 
+  //     loading, 
+  //     profileLoading 
+  //   });
+  // }, [user, userProfile, loading, profileLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
