@@ -6,15 +6,14 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
-import { 
-  Check, 
-  CheckCheck, 
-  MoreVertical, 
-  Reply, 
-  Smile, 
+import {
+  Check,
+  CheckCheck,
+  MoreVertical,
+  Reply,
+  Smile,
   Trash2,
   Edit,
-  Image as ImageIcon,
   FileText
 } from 'lucide-react';
 import {
@@ -92,123 +91,132 @@ export function MessageItem({
   };
 
   const hasReactions = message.reactions && Object.keys(message.reactions).length > 0;
-  const userReaction = message.reactions
-    ? Object.entries(message.reactions).find(([_, userIds]) => 
-        userIds.includes(userProfile?.uid || '')
-      )?.[0]
-    : null;
 
   return (
-    <div className={cn('flex items-end gap-3 group', isOwn && 'flex-row-reverse')}>
-      {showAvatar && !isOwn && (
-        <AvatarWithRing
-          src={getFileUrl(senderProfile?.photoURL) || undefined}
-          alt={senderProfile?.displayName || message.senderName}
-          fallback={getInitials(senderProfile?.displayName || message.senderName)}
-          role={senderProfile?.role}
-          size="sm"
-        />
-      )}
-      {showAvatar && isOwn && <div className="w-6" />}
-      
-      <div className={cn('flex flex-col gap-1 max-w-[80%] md:max-w-md', isOwn && 'items-end')}>
-        {message.replyTo && (
-          <div className={cn(
-            'text-xs p-2 rounded border-l-2 bg-muted/50 mb-1',
-            isOwn ? 'border-primary' : 'border-muted-foreground'
-          )}>
-            <div className="font-medium text-muted-foreground">{message.replyTo.senderName}</div>
-            <div className="text-muted-foreground truncate">{message.replyTo.text}</div>
-          </div>
-        )}
+    <div className={cn('flex w-full mb-2', isOwn ? 'justify-end' : 'justify-start')}>
+      <div className={cn('flex max-w-[85%] md:max-w-[70%] lg:max-w-[60%] group relative', isOwn ? 'flex-row-reverse' : 'flex-row')}>
 
-        {message.imageUrl && (
-          <div className="mb-2 rounded-lg overflow-hidden">
-            <img
-              src={getFileUrl(message.imageUrl) || undefined}
-              alt="Shared image"
-              className="max-w-full max-h-64 object-contain rounded-lg"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
+        {/* Avatar for others */}
+        {!isOwn && showAvatar && (
+          <div className="mr-2 flex-shrink-0 self-end mb-1">
+            <AvatarWithRing
+              src={getFileUrl(senderProfile?.photoURL) || undefined}
+              alt={senderProfile?.displayName || message.senderName}
+              fallback={getInitials(senderProfile?.displayName || message.senderName)}
+              role={senderProfile?.role}
+              size="sm"
+              uid={message.senderId}
             />
           </div>
         )}
 
-        {message.fileUrl && (
-          <div className={cn(
-            'mb-2 p-3 rounded-lg border flex items-center gap-2',
-            isOwn ? 'bg-primary/10 border-primary/20' : 'bg-muted'
-          )}>
-            <FileText className="h-4 w-4" />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{message.fileName || 'File'}</div>
-              <a
-                href={getFileUrl(message.fileUrl) || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-muted-foreground hover:underline"
-              >
-                Download
-              </a>
+        {/* Message Bubble */}
+        <div
+          className={cn(
+            'relative px-3 py-2 shadow-sm flex flex-col min-w-[120px]',
+            isOwn
+              ? 'bg-[#d9fdd3] dark:bg-[#005c4b] text-black dark:text-white rounded-l-lg rounded-tr-lg rounded-br-none'
+              : 'bg-white dark:bg-[#202c33] text-black dark:text-white rounded-r-lg rounded-tl-lg rounded-bl-none'
+          )}
+        >
+          {/* Sender Name (only for others) */}
+          {!isOwn && (
+            <div className="text-xs font-bold text-orange-600 dark:text-orange-400 mb-1">
+              {message.senderName}
             </div>
-          </div>
-        )}
+          )}
 
-        <div className={cn(
-          'rounded-lg px-4 py-2 max-w-full',
-          isOwn 
-            ? 'bg-primary text-primary-foreground' 
-            : 'bg-muted'
-        )}>
+          {/* Reply Context */}
+          {message.replyTo && (
+            <div className={cn(
+              'text-xs p-2 rounded border-l-4 mb-1 bg-black/5 dark:bg-white/10',
+              isOwn ? 'border-green-600' : 'border-orange-500'
+            )}>
+              <div className="font-medium opacity-80">{message.replyTo.senderName}</div>
+              <div className="opacity-70 truncate">{message.replyTo.text}</div>
+            </div>
+          )}
+
+          {/* Images */}
+          {message.imageUrl && (
+            <div className="mb-1 rounded-lg overflow-hidden">
+              <img
+                src={getFileUrl(message.imageUrl) || undefined}
+                alt="Shared image"
+                className="max-w-full max-h-64 object-cover rounded-lg"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+
+          {/* Files */}
+          {message.fileUrl && (
+            <div className="mb-1 p-2 rounded-lg bg-black/5 dark:bg-white/10 flex items-center gap-2">
+              <FileText className="h-8 w-8 opacity-70" />
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <div className="text-sm font-medium truncate">{message.fileName || 'File'}</div>
+                <a
+                  href={getFileUrl(message.fileUrl) || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs opacity-70 hover:underline"
+                >
+                  Download
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Text Content */}
           {message.text && (
-            <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
+            <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+              {message.text}
+              {message.edited && <span className="text-xs opacity-60 ml-1">(edited)</span>}
+            </div>
           )}
-          {message.edited && (
-            <p className={cn('text-xs mt-1', isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-              (edited)
-            </p>
-          )}
-        </div>
 
-        <div className={cn('flex items-center gap-2 text-xs text-muted-foreground', isOwn && 'flex-row-reverse')}>
-          <span>{formatTime(message.timestamp)}</span>
-          {isOwn && (
-            <span className="flex items-center gap-1">
-              {isRead ? (
-                <CheckCheck className="h-3 w-3 text-primary" />
-              ) : isDelivered ? (
-                <CheckCheck className="h-3 w-3" />
-              ) : (
-                <Check className="h-3 w-3" />
-              )}
-              {readCount > 0 && (
-                <span className="text-[10px] opacity-70">({readCount})</span>
-              )}
-            </span>
-          )}
-        </div>
-
-        {hasReactions && (
-          <div className={cn('flex flex-wrap gap-1 mt-1', isOwn && 'justify-end')}>
-            {Object.entries(message.reactions || {}).map(([emoji, userIds]) => (
-              <Button
-                key={emoji}
-                variant="outline"
-                size="sm"
-                className="h-6 px-2 text-xs"
-                onClick={() => onReact?.(message.id, emoji)}
-              >
-                {emoji} {userIds.length}
-              </Button>
-            ))}
+          {/* Timestamp & Status (Bottom Right) */}
+          <div className={cn(
+            'flex items-center justify-end gap-1 mt-1 select-none',
+            'text-[10px] opacity-70'
+          )}>
+            <span>{formatTime(message.timestamp)}</span>
+            {isOwn && (
+              <span className="flex items-center">
+                {isRead ? (
+                  <CheckCheck className="h-3 w-3 text-blue-500" />
+                ) : isDelivered ? (
+                  <CheckCheck className="h-3 w-3" />
+                ) : (
+                  <Check className="h-3 w-3" />
+                )}
+              </span>
+            )}
           </div>
-        )}
 
-        <div className={cn('flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity', isOwn && 'flex-row-reverse')}>
+          {/* Reactions Display */}
+          {hasReactions && (
+            <div className="absolute -bottom-2 right-0 flex gap-0.5 bg-white dark:bg-gray-800 rounded-full px-1.5 py-0.5 shadow border border-gray-100 dark:border-gray-700 z-10">
+              {Object.entries(message.reactions || {}).map(([emoji, userIds]) => (
+                <span key={emoji} className="text-[10px] leading-none flex items-center">
+                  {emoji}
+                  {userIds.length > 1 && <span className="ml-0.5 text-[9px]">{userIds.length}</span>}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Hover Actions (Dropdown) */}
+        <div className={cn(
+          'opacity-0 group-hover:opacity-100 transition-opacity absolute top-0',
+          isOwn ? '-left-8' : '-right-8'
+        )}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
+              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20">
                 <MoreVertical className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -232,7 +240,7 @@ export function MessageItem({
                 </DropdownMenuItem>
               )}
               {isOwn && onDelete && (
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onSelect={() => onDelete(message.id)}
                 >
@@ -244,29 +252,28 @@ export function MessageItem({
           </DropdownMenu>
         </div>
 
+        {/* Reaction Picker Popover */}
         {showReactions && (
           <div className={cn(
-            'flex gap-1 p-2 bg-background border rounded-lg shadow-lg',
-            isOwn ? 'flex-row-reverse' : ''
+            'absolute -top-10 z-20 flex gap-1 p-1 bg-white dark:bg-gray-800 border rounded-full shadow-lg',
+            isOwn ? 'right-0' : 'left-0'
           )}>
             {EMOJI_OPTIONS.map((emoji) => (
-              <Button
+              <button
                 key={emoji}
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
+                className="hover:scale-125 transition-transform text-lg leading-none p-1"
                 onClick={() => {
                   onReact?.(message.id, emoji);
                   setShowReactions(false);
                 }}
               >
                 {emoji}
-              </Button>
+              </button>
             ))}
           </div>
         )}
+
       </div>
     </div>
   );
 }
-

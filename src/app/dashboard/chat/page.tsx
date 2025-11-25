@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Loader2, Menu, Settings2 } from 'lucide-react';
+import { Send, Loader2, Menu, Settings2, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useCollection } from '@/firebase';
 import {
@@ -23,7 +23,7 @@ import {
   setDoc,
   limit
 } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import type { Team, UserProfile } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -446,8 +446,8 @@ export default function ChatPage() {
                 {chat.team?.iconURL && !chat.isCommon ? (
                   <AvatarImage src={getFileUrl(chat.team.iconURL) || undefined} alt={chat.name} />
                 ) : null}
-                <AvatarFallback>
-                  {chat.isCommon ? '💬' : chat.name.charAt(0)}
+                <AvatarFallback className={cn(chat.isCommon && "bg-primary/10 text-primary")}>
+                  {chat.isCommon ? <Users className="h-5 w-5" /> : chat.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 truncate min-w-0">
@@ -490,7 +490,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col md:grid md:grid-cols-[300px_1fr] h-[calc(100vh-11rem)] md:h-[calc(100vh-8rem)] rounded-lg border shadow-sm overflow-hidden">
+    <div className="flex flex-col md:grid md:grid-cols-[300px_1fr] h-full rounded-lg border shadow-sm overflow-hidden">
       {/* Desktop: Always visible sidebar */}
       <div className="hidden md:flex flex-col border-r">
         <ChatListContent />
@@ -522,8 +522,8 @@ export default function ChatPage() {
                 {selectedChat.team?.iconURL && !selectedChat.isCommon ? (
                   <AvatarImage src={getFileUrl(selectedChat.team.iconURL) || undefined} alt={selectedChat.name} />
                 ) : null}
-                <AvatarFallback>
-                  {selectedChat.isCommon ? '💬' : selectedChat.name.charAt(0)}
+                <AvatarFallback className={cn(selectedChat.isCommon && "bg-primary/10 text-primary")}>
+                  {selectedChat.isCommon ? <Users className="h-5 w-5" /> : selectedChat.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
@@ -553,89 +553,116 @@ export default function ChatPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 md:p-6">
-              {messagesLoading ? (
-                <div className="space-y-4">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-16 w-3/4" />
-                  ))}
-                </div>
-              ) : (
-                <div
-                  className="space-y-6"
-                  style={chatBackground ? (
-                    chatBackground.startsWith('http') || chatBackground.startsWith('data:')
-                      ? { backgroundImage: `url(${chatBackground})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
-                      : { backgroundColor: chatBackground }
-                  ) : undefined}
-                >
-                  {messages?.map((message) => {
-                    if (message.deleted) {
+
+            {/* Fix scrolling: Added min-h-0 to parent and h-full to ScrollArea */}
+            <div className="flex-1 min-h-0 relative">
+              <ScrollArea ref={scrollAreaRef} className="h-full p-4 md:p-6">
+                {messagesLoading ? (
+                  <div className="space-y-4">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-3/4" />
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    className="space-y-6"
+                    style={chatBackground ? (
+                      chatBackground.startsWith('http') || chatBackground.startsWith('data:')
+                        ? { backgroundImage: `url(${chatBackground})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
+                        : { backgroundColor: chatBackground }
+                    ) : undefined}
+                  >
+                    {messages?.map((message, index) => {
+                      // Date Separator Logic
+                      const prevMessage = index > 0 ? messages[index - 1] : null;
+                      const isNewDay = !prevMessage || !isSameDay(message.timestamp.toDate(), prevMessage.timestamp.toDate());
+
+                      let dateLabel = '';
+                      if (isNewDay) {
+                        const date = message.timestamp.toDate();
+                        if (isToday(date)) dateLabel = 'Today';
+                        else if (isYesterday(date)) dateLabel = 'Yesterday';
+                        else dateLabel = format(date, 'MMMM d, yyyy');
+                      }
+
                       return (
-                        <div key={message.id} className="text-center text-muted-foreground text-sm italic py-2">
-                          This message was deleted
+                        <div key={message.id}>
+                          {isNewDay && (
+                            <div className="flex justify-center my-4">
+                              <span className="bg-muted text-muted-foreground text-xs px-3 py-1 rounded-full">
+                                {dateLabel}
+                              </span>
+                            </div>
+                          )}
+
+                          {message.deleted ? (
+                            <div className="text-center text-muted-foreground text-sm italic py-2">
+                              This message was deleted
+                            </div>
+                          ) : (
+                            (() => {
+                              const isOwn = message.senderId === userProfile?.uid;
+                              const senderProfile = allUsers?.find(u => u.uid === message.senderId);
+                              const canDelete = isOwn || isCore(userProfile) || isSemiCore(userProfile);
+                              const canEdit = isOwn && !message.edited &&
+                                (new Date().getTime() - message.timestamp.toDate().getTime()) < 15 * 60 * 1000;
+
+                              if (editingMessageId === message.id) {
+                                return (
+                                  <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                                    <Input
+                                      value={editText}
+                                      onChange={(e) => setEditText(e.target.value)}
+                                      className="flex-1"
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                          e.preventDefault();
+                                          handleSaveEdit();
+                                        }
+                                        if (e.key === 'Escape') {
+                                          setEditingMessageId(null);
+                                          setEditText('');
+                                        }
+                                      }}
+                                      autoFocus
+                                    />
+                                    <Button size="sm" onClick={handleSaveEdit}>Save</Button>
+                                    <Button size="sm" variant="ghost" onClick={() => {
+                                      setEditingMessageId(null);
+                                      setEditText('');
+                                    }}>Cancel</Button>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <MessageItem
+                                  message={message}
+                                  isOwn={isOwn}
+                                  userProfile={userProfile}
+                                  senderProfile={senderProfile}
+                                  onReply={handleReply}
+                                  onReact={handleReact}
+                                  onDelete={canDelete ? handleDeleteMessage : undefined}
+                                  onEdit={canEdit ? handleEditMessage : undefined}
+                                  showAvatar={true}
+                                />
+                              );
+                            })()
+                          )}
                         </div>
                       );
-                    }
-
-                    const isOwn = message.senderId === userProfile?.uid;
-                    const senderProfile = allUsers?.find(u => u.uid === message.senderId);
-                    const canDelete = isOwn || isCore(userProfile) || isSemiCore(userProfile);
-                    const canEdit = isOwn && !message.edited &&
-                      (new Date().getTime() - message.timestamp.toDate().getTime()) < 15 * 60 * 1000;
-
-                    if (editingMessageId === message.id) {
-                      return (
-                        <div key={message.id} className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-                          <Input
-                            value={editText}
-                            onChange={(e) => setEditText(e.target.value)}
-                            className="flex-1"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSaveEdit();
-                              }
-                              if (e.key === 'Escape') {
-                                setEditingMessageId(null);
-                                setEditText('');
-                              }
-                            }}
-                            autoFocus
-                          />
-                          <Button size="sm" onClick={handleSaveEdit}>Save</Button>
-                          <Button size="sm" variant="ghost" onClick={() => {
-                            setEditingMessageId(null);
-                            setEditText('');
-                          }}>Cancel</Button>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <MessageItem
-                        key={message.id}
-                        message={message}
-                        isOwn={isOwn}
-                        userProfile={userProfile}
-                        senderProfile={senderProfile}
-                        onReply={handleReply}
-                        onReact={handleReact}
-                        onDelete={canDelete ? handleDeleteMessage : undefined}
-                        onEdit={canEdit ? handleEditMessage : undefined}
-                        showAvatar={true}
-                      />
-                    );
-                  })}
-                  {messages?.length === 0 && (
-                    <div className="text-center text-muted-foreground py-8">
-                      No messages yet. Start the conversation!
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              )}
-            </ScrollArea>
+                    })}
+                    {messages?.length === 0 && (
+                      <div className="text-center text-muted-foreground py-8">
+                        No messages yet. Start the conversation!
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
             <div className="p-4 border-t bg-card">
               {replyTo && (
                 <div className="mb-2 p-2 bg-muted rounded-lg flex items-center justify-between">

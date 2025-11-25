@@ -29,18 +29,26 @@ const ringThickness = {
   xl: 'border-[5px]',
 };
 
-export function AvatarWithRing({ 
-  src, 
-  alt, 
-  fallback, 
-  role, 
+export function AvatarWithRing({
+  src,
+  alt,
+  fallback,
+  role,
   size = 'md',
   className,
-  onClick 
-}: AvatarWithRingProps) {
+  onClick,
+  uid // Add uid prop for consistent avatar generation
+}: AvatarWithRingProps & { uid?: string }) {
   const ringColor = getRoleRingColor(role);
   const sizeClass = sizeClasses[size];
   const thickness = ringThickness[size];
+
+  // Generate DiceBear avatar if no src is provided
+  // Use uid as seed if available, otherwise fallback to alt text (name)
+  const seed = uid || alt || 'default';
+  const diceBearUrl = `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffdfbf,ffd4e5`;
+
+  const avatarSrc = src || diceBearUrl;
 
   // Determine ring style based on role
   const isVolunteer = role === 'Volunteer';
@@ -48,7 +56,7 @@ export function AvatarWithRing({
   const isHead = role === 'Head';
 
   return (
-    <div 
+    <div
       className={cn('relative inline-flex items-center justify-center', onClick && 'cursor-pointer', className)}
       onClick={onClick}
     >
@@ -57,7 +65,7 @@ export function AvatarWithRing({
         <div className={cn('rounded-full p-[3px] bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500')}>
           <div className="rounded-full bg-background p-[2px]">
             <Avatar className={cn(sizeClass, 'ring-0')}>
-              {src && <AvatarImage src={src} alt={alt || 'Avatar'} />}
+              <AvatarImage src={avatarSrc} alt={alt || 'Avatar'} />
               <AvatarFallback className={sizeClass}>{fallback}</AvatarFallback>
             </Avatar>
           </div>
@@ -70,12 +78,12 @@ export function AvatarWithRing({
           isSemiCore ? 'border-dashed' : isHead ? 'border-dotted' : 'border-solid',
           // Apply color classes based on role
           role === 'Core' ? 'border-red-500' :
-          role === 'Semi-core' ? 'border-blue-500' :
-          role === 'Head' ? 'border-green-500' :
-          'border-gray-400'
+            role === 'Semi-core' ? 'border-blue-500' :
+              role === 'Head' ? 'border-green-500' :
+                'border-gray-400'
         )}>
           <Avatar className={cn(sizeClass, 'ring-0')}>
-            {src && <AvatarImage src={src} alt={alt || 'Avatar'} />}
+            <AvatarImage src={avatarSrc} alt={alt || 'Avatar'} />
             <AvatarFallback className={sizeClass}>{fallback}</AvatarFallback>
           </Avatar>
         </div>
