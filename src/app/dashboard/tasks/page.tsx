@@ -285,239 +285,241 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-headline font-bold">To-Do Board</h1>
-          <p className="text-muted-foreground">Organize and track tasks for your team.</p>
-        </div>
-        {canAddTask && (
-          <div className='flex gap-2 flex-wrap'>
-            <Button variant="outline" onClick={() => setIsCreateTaskDialogOpen(true)}>
-              <PlusCircle className='mr-2 h-4 w-4' />
-              Add Task
-            </Button>
-            {canManage && (
-              <Button
-                variant={isBulkMode ? "default" : "outline"}
-                onClick={() => {
-                  setIsBulkMode(!isBulkMode);
-                  setSelectedTaskIds(new Set());
-                }}
-              >
-                {isBulkMode ? 'Cancel' : 'Bulk Actions'}
-              </Button>
-            )}
+    <div className="h-full overflow-y-auto p-4 md:p-6">
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-headline font-bold">To-Do Board</h1>
+            <p className="text-muted-foreground">Organize and track tasks for your team.</p>
           </div>
-        )}
-      </div>
-
-      {/* Filters and Search */}
-      <div className="mb-6 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="In Progress">In Progress</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          {canManage && teams && teams.length > 0 && (
-            <Select value={teamFilter} onValueChange={setTeamFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Team" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Teams</SelectItem>
-                {teams.map(team => (
-                  <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
-            const [by, order] = value.split('-');
-            setSortBy(by as 'deadline' | 'created' | 'title');
-            setSortOrder(order as 'asc' | 'desc');
-          }}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <ArrowUpDown className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Sort" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="deadline-asc">Deadline (Earliest)</SelectItem>
-              <SelectItem value="deadline-desc">Deadline (Latest)</SelectItem>
-              <SelectItem value="created-asc">Created (Oldest)</SelectItem>
-              <SelectItem value="created-desc">Created (Newest)</SelectItem>
-              <SelectItem value="title-asc">Title (A-Z)</SelectItem>
-              <SelectItem value="title-desc">Title (Z-A)</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Group By Control for Admins */}
-          {canManage && (
-            <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'status' | 'team')}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Group By" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="status">Group by Status</SelectItem>
-                <SelectItem value="team">Group by Team</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-
-        {/* Bulk Actions Bar */}
-        {isBulkMode && canManage && (
-          <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
-                {selectedTaskIds.size === filteredAndSortedTasks.length ? (
-                  <CheckSquare2 className="h-4 w-4 mr-2" />
-                ) : (
-                  <Square className="h-4 w-4 mr-2" />
-                )}
-                Select All ({selectedTaskIds.size} selected)
+          {canAddTask && (
+            <div className='flex gap-2 flex-wrap'>
+              <Button variant="outline" onClick={() => setIsCreateTaskDialogOpen(true)}>
+                <PlusCircle className='mr-2 h-4 w-4' />
+                Add Task
               </Button>
+              {canManage && (
+                <Button
+                  variant={isBulkMode ? "default" : "outline"}
+                  onClick={() => {
+                    setIsBulkMode(!isBulkMode);
+                    setSelectedTaskIds(new Set());
+                  }}
+                >
+                  {isBulkMode ? 'Cancel' : 'Bulk Actions'}
+                </Button>
+              )}
             </div>
-            <div className="flex gap-2">
-              <Select onValueChange={handleBulkStatusChange}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Change Status" />
+          )}
+        </div>
+
+        {/* Filters and Search */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+            {canManage && teams && teams.length > 0 && (
+              <Select value={teamFilter} onValueChange={setTeamFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Team" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  {teams.map(team => (
+                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleBulkDelete}
-                disabled={selectedTaskIds.size === 0}
-              >
-                Delete ({selectedTaskIds.size})
-              </Button>
-            </div>
+            )}
+            <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+              const [by, order] = value.split('-');
+              setSortBy(by as 'deadline' | 'created' | 'title');
+              setSortOrder(order as 'asc' | 'desc');
+            }}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="deadline-asc">Deadline (Earliest)</SelectItem>
+                <SelectItem value="deadline-desc">Deadline (Latest)</SelectItem>
+                <SelectItem value="created-asc">Created (Oldest)</SelectItem>
+                <SelectItem value="created-desc">Created (Newest)</SelectItem>
+                <SelectItem value="title-asc">Title (A-Z)</SelectItem>
+                <SelectItem value="title-desc">Title (Z-A)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Group By Control for Admins */}
+            {canManage && (
+              <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'status' | 'team')}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Group By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="status">Group by Status</SelectItem>
+                  <SelectItem value="team">Group by Team</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 items-start">
-        {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-muted/50 rounded-lg h-full">
-              <div className="p-4 border-b">
-                <Skeleton className="h-6 w-1/2" />
+          {/* Bulk Actions Bar */}
+          {isBulkMode && canManage && (
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
+                  {selectedTaskIds.size === filteredAndSortedTasks.length ? (
+                    <CheckSquare2 className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Square className="h-4 w-4 mr-2" />
+                  )}
+                  Select All ({selectedTaskIds.size} selected)
+                </Button>
               </div>
-              <div className="p-4 space-y-4">
-                <Skeleton className="h-28 w-full" />
-                <Skeleton className="h-28 w-full" />
+              <div className="flex gap-2">
+                <Select onValueChange={handleBulkStatusChange}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Change Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={selectedTaskIds.size === 0}
+                >
+                  Delete ({selectedTaskIds.size})
+                </Button>
               </div>
             </div>
-          ))
-        ) : (
-          columns.map(column => (
-            <div key={column.id || column.title} className="bg-muted/50 rounded-lg h-full">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-semibold font-headline flex items-center">
-                  {column.title}
-                  <span className='ml-2 text-sm font-normal bg-primary/10 text-primary rounded-full size-6 flex items-center justify-center'>{column.tasks.length}</span>
-                </h2>
-              </div>
-              <div className="p-4 space-y-4 overflow-y-auto">
-                {column.tasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onEdit={handleEditTask}
-                    onStatusChange={handleStatusChange}
-                    onAssign={handleAssignTask}
-                    onDelete={handleDeleteTask}
-                    isBulkMode={isBulkMode}
-                    isSelected={selectedTaskIds.has(task.id)}
-                    onToggleSelect={toggleTaskSelection}
-                  />
-                ))}
-                {column.tasks.length === 0 && (
-                  <div className="text-center text-sm text-muted-foreground py-10">
-                    No tasks in this column.
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+          )}
+        </div>
 
-      {canAddTask && (
-        <CreateTaskDialog
-          isOpen={isCreateTaskDialogOpen}
-          setIsOpen={setIsCreateTaskDialogOpen}
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 items-start">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-muted/50 rounded-lg h-full">
+                <div className="p-4 border-b">
+                  <Skeleton className="h-6 w-1/2" />
+                </div>
+                <div className="p-4 space-y-4">
+                  <Skeleton className="h-28 w-full" />
+                  <Skeleton className="h-28 w-full" />
+                </div>
+              </div>
+            ))
+          ) : (
+            columns.map(column => (
+              <div key={column.id || column.title} className="bg-muted/50 rounded-lg h-full">
+                <div className="p-4 border-b">
+                  <h2 className="text-lg font-semibold font-headline flex items-center">
+                    {column.title}
+                    <span className='ml-2 text-sm font-normal bg-primary/10 text-primary rounded-full size-6 flex items-center justify-center'>{column.tasks.length}</span>
+                  </h2>
+                </div>
+                <div className="p-4 space-y-4 overflow-y-auto">
+                  {column.tasks.map(task => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onEdit={handleEditTask}
+                      onStatusChange={handleStatusChange}
+                      onAssign={handleAssignTask}
+                      onDelete={handleDeleteTask}
+                      isBulkMode={isBulkMode}
+                      isSelected={selectedTaskIds.has(task.id)}
+                      onToggleSelect={toggleTaskSelection}
+                    />
+                  ))}
+                  {column.tasks.length === 0 && (
+                    <div className="text-center text-sm text-muted-foreground py-10">
+                      No tasks in this column.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {canAddTask && (
+          <CreateTaskDialog
+            isOpen={isCreateTaskDialogOpen}
+            setIsOpen={setIsCreateTaskDialogOpen}
+            teams={teams || []}
+            users={users || []}
+          />
+        )}
+        <EditTaskDialog
+          isOpen={isEditTaskDialogOpen}
+          setIsOpen={(open) => {
+            setIsEditTaskDialogOpen(open);
+            if (!open) setSelectedTask(null);
+          }}
+          task={selectedTask}
           teams={teams || []}
           users={users || []}
         />
-      )}
-      <EditTaskDialog
-        isOpen={isEditTaskDialogOpen}
-        setIsOpen={(open) => {
-          setIsEditTaskDialogOpen(open);
-          if (!open) setSelectedTask(null);
-        }}
-        task={selectedTask}
-        teams={teams || []}
-        users={users || []}
-      />
-      <ChangeTaskStatusDialog
-        isOpen={isStatusDialogOpen}
-        setIsOpen={(open) => {
-          setIsStatusDialogOpen(open);
-          if (!open) setSelectedTask(null);
-        }}
-        task={selectedTask}
-      />
-      <AssignTaskDialog
-        isOpen={isAssignDialogOpen}
-        setIsOpen={(open) => {
-          setIsAssignDialogOpen(open);
-          if (!open) setSelectedTask(null);
-        }}
-        task={selectedTask}
-        teams={teams || []}
-        users={users || []}
-      />
-      <AlertDialog open={deleteTaskDialog.open} onOpenChange={(open) => setDeleteTaskDialog({ open, task: null })}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Task</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the task "{deleteTaskDialog.task?.title}"? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <ChangeTaskStatusDialog
+          isOpen={isStatusDialogOpen}
+          setIsOpen={(open) => {
+            setIsStatusDialogOpen(open);
+            if (!open) setSelectedTask(null);
+          }}
+          task={selectedTask}
+        />
+        <AssignTaskDialog
+          isOpen={isAssignDialogOpen}
+          setIsOpen={(open) => {
+            setIsAssignDialogOpen(open);
+            if (!open) setSelectedTask(null);
+          }}
+          task={selectedTask}
+          teams={teams || []}
+          users={users || []}
+        />
+        <AlertDialog open={deleteTaskDialog.open} onOpenChange={(open) => setDeleteTaskDialog({ open, task: null })}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Task</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the task "{deleteTaskDialog.task?.title}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }

@@ -81,6 +81,9 @@ export default function DashboardPage() {
     if (canSeeAllTeams(userProfile)) {
       return collection(db, 'teams');
     }
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'teams'), where('__name__', 'in', userProfile.teamIds));
+    }
     if (userProfile?.teamId) {
       return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
     }
@@ -92,6 +95,9 @@ export default function DashboardPage() {
     if (!db) return null;
     if (canSeeAllTasks(userProfile)) {
       return collection(db, 'tasks');
+    }
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'tasks'), where('teamId', 'in', userProfile.teamIds));
     }
     if (userProfile?.teamId) {
       return query(collection(db, 'tasks'), where('teamId', '==', userProfile.teamId));
@@ -107,6 +113,9 @@ export default function DashboardPage() {
     if (!db) return null;
     if (canSeeAllFiles(userProfile)) {
       return collection(db, 'files');
+    }
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'files'), where('teamId', 'in', userProfile.teamIds));
     }
     if (userProfile?.teamId) {
       return query(collection(db, 'files'), where('teamId', '==', userProfile.teamId));
@@ -124,13 +133,29 @@ export default function DashboardPage() {
     if (canSeeAllTeams(userProfile)) {
       return query(collection(db, 'meetings'), orderBy('scheduledDate', 'asc'));
     }
-    if (userProfile?.teamId) {
+
+    const userTeamIds = userProfile?.teamIds || [];
+    if (userProfile?.teamId && !userTeamIds.includes(userProfile.teamId)) {
+      userTeamIds.push(userProfile.teamId);
+    }
+
+    if (userTeamIds.length > 0) {
+      // Include team meetings and all-team meetings (teamId == null)
+      // Firestore 'in' query supports up to 10 values. 
+      // We need to handle null separately or include it in the list if possible, but 'in' doesn't support null mixed with strings well in all SDK versions or requires specific handling.
+      // A simpler approach for now is to just query by teamIds if we can, or rely on client side filtering if complex.
+      // However, let's try to include null in the 'in' array if possible, or just query for teams.
+      // Actually, 'in' query with null is tricky. Let's stick to querying for teams and maybe a separate query for global meetings if needed, 
+      // but for now let's just query for the user's teams. Global meetings might need a separate handling or be assigned to a 'common' team id.
+      // Assuming 'null' teamId means global.
+
       return query(
         collection(db, 'meetings'),
-        where('teamId', 'in', [userProfile.teamId, null]), // Include team meetings and all-team meetings
+        where('teamId', 'in', [...userTeamIds, null]),
         orderBy('scheduledDate', 'asc')
       );
     }
+
     return null;
   }, [db, userProfile]);
 
@@ -140,9 +165,15 @@ export default function DashboardPage() {
 
   // Calculate summary statistics
   // Get user's team info
-  const userTeam = useMemo(() => {
-    if (!teams || !userProfile?.teamId) return null;
-    return teams.find(t => t.id === userProfile.teamId);
+  const userTeams = useMemo(() => {
+    if (!teams) return [];
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return teams.filter(t => userProfile.teamIds?.includes(t.id));
+    }
+    if (userProfile?.teamId) {
+      return teams.filter(t => t.id === userProfile.teamId);
+    }
+    return [];
   }, [teams, userProfile]);
 
   // Get upcoming tasks for user
@@ -318,241 +349,247 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
-        {(canSeeAllTeams(userProfile)) && (
-          <Button onClick={exportDataToExcel} className="bg-orange-500 hover:bg-orange-600 text-white">
-            <Download className="mr-2 h-4 w-4" /> Export Data
-          </Button>
-        )}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {summaryData.map((item, index) => (
-          <Card key={index} className="shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
-              <item.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{item.value}</div>
-              <p className="text-xs text-muted-foreground">
-                {item.description}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Status Bar Chart */}
-        <Card className="shadow-sm col-span-1">
-          <CardHeader>
-            <CardTitle className='font-headline'>Task Status</CardTitle>
-            <CardDescription>Overview of task progress</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <XAxis dataKey="status" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="tasks" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Urgency Pie Chart */}
-        <Card className="shadow-sm col-span-1">
-          <CardHeader>
-            <CardTitle className='font-headline'>Task Urgency</CardTitle>
-            <CardDescription>Tasks by deadline proximity</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={urgencyData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {urgencyData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<ChartTooltipContent />} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Trend Line Chart */}
-        <Card className="shadow-sm col-span-1 md:col-span-2 lg:col-span-1">
-          <CardHeader>
-            <CardTitle className='font-headline'>New Tasks</CardTitle>
-            <CardDescription>Tasks created in last 7 days</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData}>
-                  <XAxis dataKey="date" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip content={<ChartTooltipContent />} />
-                  <Line type="monotone" dataKey="tasks" stroke="var(--color-created)" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Enhanced Dashboard for Volunteers and Heads */}
-      {(userProfile?.role === 'Volunteer' || userProfile?.role === 'Head') && (
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Team Info */}
-          {userTeam && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Your Team
-                </CardTitle>
+    <div className="h-full overflow-y-auto p-4 md:p-6">
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
+          {(canSeeAllTeams(userProfile)) && (
+            <Button onClick={exportDataToExcel} className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Download className="mr-2 h-4 w-4" /> Export Data
+            </Button>
+          )}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {summaryData.map((item, index) => (
+            <Card key={index} className="shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
+                <item.icon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <p className="text-2xl font-bold">{userTeam.name}</p>
-                  {userTeam.description && (
-                    <p className="text-sm text-muted-foreground">{userTeam.description}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    {userTeam.members?.length || 0} member(s)
-                  </p>
-                </div>
+                <div className="text-2xl font-bold">{item.value}</div>
+                <p className="text-xs text-muted-foreground">
+                  {item.description}
+                </p>
               </CardContent>
             </Card>
-          )}
+          ))}
+        </div>
 
-          {/* Pending Tasks */}
-          <Card>
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Status Bar Chart */}
+          <Card className="shadow-sm col-span-1">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckSquare className="h-5 w-5" />
-                Pending Tasks
-              </CardTitle>
-              <CardDescription>Tasks assigned to you</CardDescription>
+              <CardTitle className='font-headline'>Task Status</CardTitle>
+              <CardDescription>Overview of task progress</CardDescription>
             </CardHeader>
             <CardContent>
-              {upcomingTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No pending tasks</p>
-              ) : (
-                <div className="space-y-2">
-                  {upcomingTasks.map(task => (
-                    <div key={task.id} className="flex items-center justify-between p-2 rounded border">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{task.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Due: {format(task.deadline.toDate(), 'MMM dd, yyyy')}
-                        </p>
-                      </div>
-                      <Link href="/dashboard/tasks">
-                        <Button variant="ghost" size="sm">View</Button>
-                      </Link>
-                    </div>
-                  ))}
-                  {tasks && tasks.filter(t => t.status !== 'Completed').length > 5 && (
-                    <Link href="/dashboard/tasks">
-                      <Button variant="outline" className="w-full mt-2">
-                        View All Tasks
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              )}
+              <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <XAxis dataKey="status" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="tasks" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </CardContent>
           </Card>
 
-          {/* Upcoming Deadlines */}
-          <Card>
+          {/* Urgency Pie Chart */}
+          <Card className="shadow-sm col-span-1">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Upcoming Deadlines
-              </CardTitle>
-              <CardDescription>Tasks due in the next 7 days</CardDescription>
+              <CardTitle className='font-headline'>Task Urgency</CardTitle>
+              <CardDescription>Tasks by deadline proximity</CardDescription>
             </CardHeader>
             <CardContent>
-              {upcomingTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No upcoming deadlines</p>
-              ) : (
-                <div className="space-y-2">
-                  {upcomingTasks.slice(0, 3).map(task => (
-                    <div key={task.id} className="flex items-center justify-between p-2 rounded border">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{task.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(task.deadline.toDate(), 'MMM dd, yyyy HH:mm')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={urgencyData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {urgencyData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </CardContent>
           </Card>
 
-          {/* Upcoming Meetings */}
-          <Card>
+          {/* Trend Line Chart */}
+          <Card className="shadow-sm col-span-1 md:col-span-2 lg:col-span-1">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="h-5 w-5" />
-                Upcoming Meetings
-              </CardTitle>
-              <CardDescription>Scheduled team meetings</CardDescription>
+              <CardTitle className='font-headline'>New Tasks</CardTitle>
+              <CardDescription>Tasks created in last 7 days</CardDescription>
             </CardHeader>
             <CardContent>
-              {upcomingMeetings.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No upcoming meetings</p>
-              ) : (
-                <div className="space-y-2">
-                  {upcomingMeetings.map((meeting: any) => (
-                    <div key={meeting.id} className="flex items-center justify-between p-2 rounded border">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{meeting.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {meeting.scheduledDate && meeting.scheduledDate.toDate ? format(meeting.scheduledDate.toDate(), 'MMM dd, yyyy HH:mm') : 'Date TBD'}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => meeting.meetingLink && window.open(meeting.meetingLink, '_blank')}
-                      >
-                        Join
-                      </Button>
-                    </div>
-                  ))}
-                  <Link href="/dashboard/meetings">
-                    <Button variant="outline" className="w-full mt-2">
-                      View All Meetings
-                    </Button>
-                  </Link>
-                </div>
-              )}
+              <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendData}>
+                    <XAxis dataKey="date" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="tasks" stroke="var(--color-created)" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </CardContent>
           </Card>
         </div>
-      )}
+
+        {/* Enhanced Dashboard for Volunteers and Heads */}
+        {(userProfile?.role === 'Volunteer' || userProfile?.role === 'Head') && (
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Team Info */}
+            {userTeams.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Your Teams
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {userTeams.map(team => (
+                      <div key={team.id} className="space-y-1 pb-2 border-b last:border-0 last:pb-0">
+                        <p className="text-xl font-bold">{team.name}</p>
+                        {team.description && (
+                          <p className="text-sm text-muted-foreground">{team.description}</p>
+                        )}
+                        <p className="text-sm text-muted-foreground">
+                          {team.members?.length || 0} member(s)
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pending Tasks */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckSquare className="h-5 w-5" />
+                  Pending Tasks
+                </CardTitle>
+                <CardDescription>Tasks assigned to you</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingTasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No pending tasks</p>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingTasks.map(task => (
+                      <div key={task.id} className="flex items-center justify-between p-2 rounded border">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Due: {format(task.deadline.toDate(), 'MMM dd, yyyy')}
+                          </p>
+                        </div>
+                        <Link href="/dashboard/tasks">
+                          <Button variant="ghost" size="sm">View</Button>
+                        </Link>
+                      </div>
+                    ))}
+                    {tasks && tasks.filter(t => t.status !== 'Completed').length > 5 && (
+                      <Link href="/dashboard/tasks">
+                        <Button variant="outline" className="w-full mt-2">
+                          View All Tasks
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upcoming Deadlines */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Upcoming Deadlines
+                </CardTitle>
+                <CardDescription>Tasks due in the next 7 days</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingTasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No upcoming deadlines</p>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingTasks.slice(0, 3).map(task => (
+                      <div key={task.id} className="flex items-center justify-between p-2 rounded border">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(task.deadline.toDate(), 'MMM dd, yyyy HH:mm')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upcoming Meetings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="h-5 w-5" />
+                  Upcoming Meetings
+                </CardTitle>
+                <CardDescription>Scheduled team meetings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingMeetings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No upcoming meetings</p>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingMeetings.map((meeting: any) => (
+                      <div key={meeting.id} className="flex items-center justify-between p-2 rounded border">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{meeting.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {meeting.scheduledDate && meeting.scheduledDate.toDate ? format(meeting.scheduledDate.toDate(), 'MMM dd, yyyy HH:mm') : 'Date TBD'}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => meeting.meetingLink && window.open(meeting.meetingLink, '_blank')}
+                        >
+                          Join
+                        </Button>
+                      </div>
+                    ))}
+                    <Link href="/dashboard/meetings">
+                      <Button variant="outline" className="w-full mt-2">
+                        View All Meetings
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

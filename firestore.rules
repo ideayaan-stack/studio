@@ -65,7 +65,7 @@ service cloud.firestore {
         isRole('Core') || 
         isRole('Semi-core') ||
         (isRole('Head') && isTeamMember(resource.data.teamId)) ||
-        (isRole('Volunteer') && isUser(resource.data.assignee.uid) && request.resource.data.keys().hasOnly(['status', 'updatedAt']))
+        (isRole('Volunteer') && isUser(resource.data.assignee.uid) && request.resource.data.keys().hasOnly(['status', 'updatedAt', 'completionReport']))
       );
 
       // Deleting tasks: Only Core, Semi-core, and Heads of the respective team can delete.

@@ -22,13 +22,24 @@ import { Loader2 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import type { UserProfile, Team, Role } from '@/lib/types';
 import { canManagePermissions } from '@/lib/permissions';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const roles = ['Core', 'Semi-core', 'Head', 'Volunteer', 'Unassigned'] as const;
 
 const editUserSchema = z.object({
   displayName: z.string().min(2, { message: 'Display name is required' }),
   role: z.enum(roles, { required_error: 'Role is required' }),
-  teamId: z.string().optional(),
+  teamIds: z.array(z.string()).optional(),
+}).refine((data) => {
+  if ((data.role === 'Head' || data.role === 'Volunteer') && (!data.teamIds || data.teamIds.length === 0)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "At least one team must be selected for Head or Volunteer roles",
+  path: ["teamIds"],
 });
 
 type EditUserInput = z.infer<typeof editUserSchema>;
@@ -57,7 +68,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
     defaultValues: {
       displayName: user?.displayName || '',
       role: user?.role || 'Volunteer',
-      teamId: user?.teamId || '',
+      teamIds: user?.teamIds || (user?.teamId ? [user.teamId] : []),
     },
   });
 
@@ -66,13 +77,28 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
       reset({
         displayName: user.displayName || '',
         role: user.role || 'Volunteer',
-        teamId: user.teamId || '',
+        teamIds: user.teamIds || (user.teamId ? [user.teamId] : []),
       });
     }
   }, [user, isOpen, reset]);
 
   const selectedRole = watch('role');
+  const selectedTeamIds = watch('teamIds') || [];
   const isTeamRequired = selectedRole === 'Head' || selectedRole === 'Volunteer';
+
+  const handleTeamToggle = (teamId: string) => {
+    const currentTeams = selectedTeamIds;
+    if (currentTeams.includes(teamId)) {
+      setValue('teamIds', currentTeams.filter(id => id !== teamId), { shouldValidate: true });
+    } else {
+      setValue('teamIds', [...currentTeams, teamId], { shouldValidate: true });
+    }
+  };
+
+  const handleClose = () => {
+    reset();
+    setIsOpen(false);
+  };
 
   if (!canManagePermissions(userProfile) || !user) {
     return null;
@@ -80,20 +106,26 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
 
   const onSubmit: SubmitHandler<EditUserInput> = async (data) => {
     if (!db || !user) return;
-    
+
     setIsLoading(true);
-    const finalTeamId = (data.role === 'Core' || data.role === 'Semi-core' || !data.teamId || data.teamId === 'unassigned') 
-      ? '' 
-      : data.teamId;
+    const finalTeamIds = (data.role === 'Core' || data.role === 'Semi-core')
+      ? []
+      : (data.teamIds || []);
+
+    // For backward compatibility, set the first team as primary
+    const primaryTeamId = finalTeamIds.length > 0 ? finalTeamIds[0] : '';
 
     try {
       const userDocRef = doc(db, 'users', user.uid);
+
+      // Update directly in Firestore first for immediate feedback
       await updateDoc(userDocRef, {
         displayName: data.displayName,
         role: data.role,
-        teamId: finalTeamId,
+        teamId: primaryTeamId,
+        teamIds: finalTeamIds,
       });
-      
+
       toast({
         title: 'User Updated',
         description: `${data.displayName}'s profile has been updated.`,
@@ -109,11 +141,6 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleClose = () => {
-    reset();
-    setIsOpen(false);
   };
 
   return (
@@ -137,7 +164,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
             <Input id="displayName" {...register('displayName')} />
             {errors.displayName && <p className="text-xs text-destructive">{errors.displayName.message}</p>}
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" value={user?.email || ''} disabled />
@@ -146,8 +173,8 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
 
           <div className="space-y-2">
             <Label htmlFor="role">Role *</Label>
-            <Select 
-              value={watch('role') || ''} 
+            <Select
+              value={watch('role') || ''}
               onValueChange={(value: Role) => setValue('role', value, { shouldValidate: true })}
             >
               <SelectTrigger>
@@ -162,27 +189,76 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
             {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="teamId">Team {isTeamRequired && '*'}</Label>
-            <Select 
-              value={watch('teamId') || 'unassigned'} 
-              onValueChange={(value) => setValue('teamId', value === 'unassigned' ? '' : value, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={isTeamRequired ? "Select a team (required)" : "Select a team (optional)"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">No Team</SelectItem>
-                {teams
-                  .filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core')
-                  .map(team => (
-                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {errors.teamId && <p className="text-xs text-destructive">{errors.teamId.message}</p>}
-            {isTeamRequired && !watch('teamId') && (
-              <p className="text-xs text-muted-foreground">Team is required for Head and Volunteer roles</p>
+          <div className="space-y-3">
+            <Label>Teams {isTeamRequired && '*'}</Label>
+
+            {/* Selected Teams Badges */}
+            <div className="flex flex-wrap gap-2 mb-2 min-h-[24px]">
+              {selectedTeamIds.length > 0 ? (
+                selectedTeamIds.map(teamId => {
+                  const team = teams.find(t => t.id === teamId);
+                  return team ? (
+                    <Badge key={teamId} variant="secondary" className="px-2 py-1">
+                      {team.name}
+                      <button
+                        type="button"
+                        onClick={() => handleTeamToggle(teamId)}
+                        className="ml-2 hover:text-destructive focus:outline-none"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  ) : null;
+                })
+              ) : (
+                <span className="text-sm text-muted-foreground italic">No teams selected</span>
+              )}
+            </div>
+
+            {/* Team Selection List */}
+            <div className="border rounded-md">
+              <ScrollArea className="h-[200px] p-2">
+                <div className="space-y-1">
+                  {teams
+                    .filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core')
+                    .map(team => {
+                      const isSelected = selectedTeamIds.includes(team.id);
+                      return (
+                        <div
+                          key={team.id}
+                          className={`flex items-center space-x-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-muted' : ''}`}
+                          onClick={() => handleTeamToggle(team.id)}
+                        >
+                          <Checkbox
+                            id={`team-${team.id}`}
+                            checked={isSelected}
+                            onCheckedChange={() => handleTeamToggle(team.id)}
+                          />
+                          <div className="flex-1">
+                            <Label
+                              htmlFor={`team-${team.id}`}
+                              className="text-sm font-medium cursor-pointer"
+                            >
+                              {team.name}
+                            </Label>
+                            {team.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {team.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  {teams.filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core').length === 0 && (
+                    <p className="text-sm text-muted-foreground p-2">No teams available</p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+            {errors.teamIds && <p className="text-xs text-destructive">{errors.teamIds.message}</p>}
+            {isTeamRequired && selectedTeamIds.length === 0 && (
+              <p className="text-xs text-muted-foreground">At least one team is required for Head and Volunteer roles</p>
             )}
           </div>
 
@@ -199,4 +275,3 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
     </Dialog>
   );
 }
-

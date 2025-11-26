@@ -78,31 +78,31 @@ export default function TeamsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [teamFilter, setTeamFilter] = useState<string>('all');
-  
+
   const userIsHead = isHead(userProfile);
 
   // Core and Semi-core see all teams. Heads see only their team.
   const teamsQuery = useMemo(() => {
-      if (!db) return null;
-      if (canSeeAllTeams(userProfile)) return collection(db, 'teams');
-      if (userIsHead && userProfile?.teamId) return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
-      return null;
+    if (!db) return null;
+    if (canSeeAllTeams(userProfile)) return collection(db, 'teams');
+    if (userIsHead && userProfile?.teamId) return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
+    return null;
   }, [db, userProfile, userIsHead]);
 
   // Core and Semi-core see all users. Heads see users in their team.
   const usersQuery = useMemo(() => {
-      if (!db) return null;
-      if (canSeeAllTeams(userProfile)) return collection(db, 'users');
-      if (userIsHead && userProfile?.teamId) return query(collection(db, 'users'), where('teamId', '==', userProfile.teamId));
-      return null;
+    if (!db) return null;
+    if (canSeeAllTeams(userProfile)) return collection(db, 'users');
+    if (userIsHead && userProfile?.teamId) return query(collection(db, 'users'), where('teamId', '==', userProfile.teamId));
+    return null;
   }, [db, userProfile, userIsHead]);
 
 
   const { data: teams, loading: teamsLoading } = useCollection<Team>(teamsQuery);
   const { data: users, loading: usersLoading } = useCollection<UserProfile>(usersQuery);
-  
+
   const isLoading = authLoading || teamsLoading || usersLoading;
-  
+
   // Only Core can create users/teams and manage permissions
   const canManage = canCreateUsers(userProfile);
   const canManagePerms = canManagePermissions(userProfile);
@@ -123,7 +123,7 @@ export default function TeamsPage() {
   const filteredUsers = useMemo(() => {
     if (!usersWithTeamInfo) return [];
     return usersWithTeamInfo.filter(user => {
-      const matchesSearch = !searchQuery || 
+      const matchesSearch = !searchQuery ||
         user.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.teamName?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -137,7 +137,7 @@ export default function TeamsPage() {
   const filteredTeams = useMemo(() => {
     if (!teams) return [];
     return teams.filter(team => {
-      const matchesSearch = !searchQuery || 
+      const matchesSearch = !searchQuery ||
         team.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         team.description?.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesSearch;
@@ -148,10 +148,10 @@ export default function TeamsPage() {
     if (!db || !canManagePerms) return;
     const userDocRef = doc(db, 'users', uid);
     try {
-        await updateDoc(userDocRef, { role });
-        toast({ title: "Success", description: "User role updated." });
+      await updateDoc(userDocRef, { role });
+      toast({ title: "Success", description: "User role updated." });
     } catch (error: any) {
-        toast({ variant: "destructive", title: "Error", description: error.message });
+      toast({ variant: "destructive", title: "Error", description: error.message });
     }
   };
 
@@ -159,57 +159,57 @@ export default function TeamsPage() {
     if (!db || !canManagePerms) return;
     const userDocRef = doc(db, 'users', uid);
     try {
-        await updateDoc(userDocRef, { teamId });
-        toast({ title: "Success", description: "User team updated." });
+      await updateDoc(userDocRef, { teamId });
+      toast({ title: "Success", description: "User team updated." });
     } catch (error: any) {
-        toast({ variant: "destructive", title: "Error", description: error.message });
+      toast({ variant: "destructive", title: "Error", description: error.message });
     }
   };
 
   const handleDeleteUser = async () => {
     if (!canManagePerms || !deleteUserDialog.user) return;
-    
+
     // Security check: confirm text must match user's email
     if (deleteUserDialog.confirmText !== deleteUserDialog.user.email) {
-      toast({ 
-        variant: "destructive", 
-        title: "Confirmation Failed", 
-        description: "Please type the user's email address to confirm deletion." 
+      toast({
+        variant: "destructive",
+        title: "Confirmation Failed",
+        description: "Please type the user's email address to confirm deletion."
       });
       return;
     }
 
     try {
       const result = await deleteUserAction(deleteUserDialog.user.uid);
-      
+
       if (result.error) {
         throw new Error(result.error);
       }
 
-      toast({ 
-        title: "User Deleted", 
-        description: `${deleteUserDialog.user.displayName} has been permanently deleted from the system.` 
+      toast({
+        title: "User Deleted",
+        description: `${deleteUserDialog.user.displayName} has been permanently deleted from the system.`
       });
       setDeleteUserDialog({ open: false, user: null, confirmText: '' });
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      toast({ 
-        variant: "destructive", 
-        title: "Error", 
-        description: error.message || "Failed to delete user. Please try again." 
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete user. Please try again."
       });
     }
   };
 
   const handleDeleteTeam = async () => {
     if (!db || !canManage || !deleteTeamDialog.team) return;
-    
+
     // Security check: confirm text must match team name
     if (deleteTeamDialog.confirmText !== deleteTeamDialog.team.name) {
-      toast({ 
-        variant: "destructive", 
-        title: "Confirmation Failed", 
-        description: `Please type "${deleteTeamDialog.team.name}" to confirm deletion.` 
+      toast({
+        variant: "destructive",
+        title: "Confirmation Failed",
+        description: `Please type "${deleteTeamDialog.team.name}" to confirm deletion.`
       });
       return;
     }
@@ -218,36 +218,36 @@ export default function TeamsPage() {
       const { deleteDoc } = await import('firebase/firestore');
       const teamDocRef = doc(db, 'teams', deleteTeamDialog.team.id);
       await deleteDoc(teamDocRef);
-      toast({ 
-        title: "Team Deleted", 
-        description: `Team "${deleteTeamDialog.team.name}" has been permanently deleted.` 
+      toast({
+        title: "Team Deleted",
+        description: `Team "${deleteTeamDialog.team.name}" has been permanently deleted.`
       });
       setDeleteTeamDialog({ open: false, team: null, confirmText: '' });
     } catch (error: any) {
       console.error('Error deleting team:', error);
-      toast({ 
-        variant: "destructive", 
-        title: "Error", 
-        description: error.message || "Failed to delete team. Please try again." 
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete team. Please try again."
       });
     }
   };
-  
+
   // Volunteers should not see this page. Redirect or show a message.
   if (!isLoading && !canAccessTeamsPage(userProfile)) {
-      return (
-        <Alert variant="default" className="max-w-xl mx-auto">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            This page is for team management and is only accessible to Admins and Team Heads. Please navigate to other sections using the sidebar.
-          </AlertDescription>
-        </Alert>
-      )
+    return (
+      <Alert variant="default" className="max-w-xl mx-auto">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Access Denied</AlertTitle>
+        <AlertDescription>
+          This page is for team management and is only accessible to Admins and Team Heads. Please navigate to other sections using the sidebar.
+        </AlertDescription>
+      </Alert>
+    )
   }
 
   return (
-    <>
+    <div className="h-full overflow-y-auto p-4 md:p-6">
       <div className="grid gap-6">
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -285,258 +285,259 @@ export default function TeamsPage() {
                     {(canManage || userIsHead) && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({length: 3}).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-full max-w-sm" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                      <TableCell className="text-center"><Skeleton className="h-5 w-10 mx-auto" /></TableCell>
-                      {(canManage || userIsHead) && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
-                    </TableRow>
-                  ))
-                ) : (
-                  filteredTeams?.map((team) => {
-                    const headUser = users?.find(u => u.uid === team.head);
-                    const memberCount = users?.filter(u => u.teamId === team.id).length || 0;
-                    return (
-                    <TableRow key={team.id}>
-                      <TableCell className="font-medium">
-                        <div>
-                          <div>{team.name}</div>
-                          <div className="text-xs text-muted-foreground md:hidden mt-1">{team.description}</div>
-                          <div className="text-xs text-muted-foreground sm:hidden mt-1">Head: {headUser?.displayName || 'N/A'}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className='text-muted-foreground max-w-sm truncate hidden md:table-cell'>{team.description}</TableCell>
-                      <TableCell className='text-muted-foreground hidden sm:table-cell'>{headUser?.displayName || 'N/A'}</TableCell>
-                      <TableCell className="text-center">{memberCount}</TableCell>
-                      {(canManage || userIsHead) && (
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button aria-haspopup="true" size="icon" variant="ghost">
-                                <MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onSelect={() => {
-                                setSelectedTeam(team);
-                                // View team details - could add a view dialog later
-                              }}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
-                              </DropdownMenuItem>
-                              {canManage && (
-                                <DropdownMenuItem onSelect={() => {
-                                  setSelectedTeam(team);
-                                  setEditTeamDialogOpen(true);
-                                }}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Team
-                                </DropdownMenuItem>
-                              )}
-                              {canManage && (
-                                <DropdownMenuItem 
-                                  className='text-destructive focus:text-destructive focus:bg-destructive/10'
-                                  onSelect={() => setDeleteTeamDialog({ open: true, team, confirmText: '' })}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Team
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  )})
-                )}
-                {!isLoading && filteredTeams?.length === 0 && (
+                <TableBody>
+                  {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-full max-w-sm" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell className="text-center"><Skeleton className="h-5 w-10 mx-auto" /></TableCell>
+                        {(canManage || userIsHead) && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
+                      </TableRow>
+                    ))
+                  ) : (
+                    filteredTeams?.map((team) => {
+                      const headUser = users?.find(u => u.uid === team.head);
+                      const memberCount = users?.filter(u => u.teamId === team.id).length || 0;
+                      return (
+                        <TableRow key={team.id}>
+                          <TableCell className="font-medium">
+                            <div>
+                              <div>{team.name}</div>
+                              <div className="text-xs text-muted-foreground md:hidden mt-1">{team.description}</div>
+                              <div className="text-xs text-muted-foreground sm:hidden mt-1">Head: {headUser?.displayName || 'N/A'}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell className='text-muted-foreground max-w-sm truncate hidden md:table-cell'>{team.description}</TableCell>
+                          <TableCell className='text-muted-foreground hidden sm:table-cell'>{headUser?.displayName || 'N/A'}</TableCell>
+                          <TableCell className="text-center">{memberCount}</TableCell>
+                          {(canManage || userIsHead) && (
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button aria-haspopup="true" size="icon" variant="ghost">
+                                    <MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem onSelect={() => {
+                                    setSelectedTeam(team);
+                                    // View team details - could add a view dialog later
+                                  }}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  {canManage && (
+                                    <DropdownMenuItem onSelect={() => {
+                                      setSelectedTeam(team);
+                                      setEditTeamDialogOpen(true);
+                                    }}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit Team
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canManage && (
+                                    <DropdownMenuItem
+                                      className='text-destructive focus:text-destructive focus:bg-destructive/10'
+                                      onSelect={() => setDeleteTeamDialog({ open: true, team, confirmText: '' })}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete Team
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      )
+                    })
+                  )}
+                  {!isLoading && filteredTeams?.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={canManage || userIsHead ? 5 : 4} className="h-24 text-center">
                         {searchQuery ? 'No teams match your search.' : 'No teams found. Get started by creating a team.'}
                       </TableCell>
                     </TableRow>
-                )}
-              </TableBody>
+                  )}
+                </TableBody>
               </Table>
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                    <CardTitle className='font-headline'>Users</CardTitle>
-                    <CardDescription className="hidden sm:block">Manage user accounts and roles within your scope.</CardDescription>
-                </div>
-                 {canCreateUsers(userProfile) && (
-                    <Button size="sm" className="gap-1 shrink-0" onClick={() => setAddUserDialogOpen(true)}>
-                        <User className="h-4 w-4" />
-                        <span className="hidden sm:inline">Add User</span>
-                        <span className="sm:hidden">Add</span>
-                    </Button>
-                )}
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4 space-y-3">
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search users by name, email, or team..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Filter by role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="Core">Core</SelectItem>
-                      <SelectItem value="Semi-core">Semi-core</SelectItem>
-                      <SelectItem value="Head">Head</SelectItem>
-                      <SelectItem value="Volunteer">Volunteer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={teamFilter} onValueChange={setTeamFilter}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Filter by team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Teams</SelectItem>
-                      {teams?.filter(t => t.name !== 'Core').map(team => (
-                        <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                      ))}
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <CardTitle className='font-headline'>Users</CardTitle>
+              <CardDescription className="hidden sm:block">Manage user accounts and roles within your scope.</CardDescription>
+            </div>
+            {canCreateUsers(userProfile) && (
+              <Button size="sm" className="gap-1 shrink-0" onClick={() => setAddUserDialogOpen(true)}>
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Add User</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 space-y-3">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search users by name, email, or team..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
               </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Display Name</TableHead>
-                      <TableHead className="hidden md:table-cell">Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead className="hidden sm:table-cell">Team</TableHead>
-                      {(canManagePerms || userIsHead) && <TableHead className="text-right">Actions</TableHead>}
-                    </TableRow>
-                  </TableHeader>
+              <div className="flex gap-2 flex-wrap">
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Filter by role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="Core">Core</SelectItem>
+                    <SelectItem value="Semi-core">Semi-core</SelectItem>
+                    <SelectItem value="Head">Head</SelectItem>
+                    <SelectItem value="Volunteer">Volunteer</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={teamFilter} onValueChange={setTeamFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Teams</SelectItem>
+                    {teams?.filter(t => t.name !== 'Core').map(team => (
+                      <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                    ))}
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Display Name</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead className="hidden sm:table-cell">Team</TableHead>
+                    {(canManagePerms || userIsHead) && <TableHead className="text-right">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                    {isLoading ? (
-                        Array.from({length: 4}).map((_, i) => (
-                            <TableRow key={i}>
-                                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                                <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                {(canManagePerms || userIsHead) && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
-                            </TableRow>
-                        ))
-                    ) : (
-                        filteredUsers?.map(user => (
-                            <TableRow key={user.uid} className={cn(user.teamName === 'Unassigned' && 'bg-destructive/10')}>
-                                <TableCell className="font-medium">
-                                  <div>
-                                    <div>{user.displayName}</div>
-                                    <div className="text-xs text-muted-foreground md:hidden mt-1">{user.email}</div>
-                                    <div className={cn('text-xs sm:hidden mt-1', user.teamName === 'Unassigned' && 'text-destructive')}>
-                                      Team: {user.teamName}
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className='text-muted-foreground hidden md:table-cell'>{user.email}</TableCell>
-                                <TableCell><Badge variant={user.role === 'Core' ? 'default' : 'secondary'}>{user.role}</Badge></TableCell>
-                                <TableCell className={cn('font-medium hidden sm:table-cell', user.teamName === 'Unassigned' && 'text-destructive')}>{user.teamName}</TableCell>
-                                {(canManagePerms || (userIsHead && user.uid !== userProfile?.uid)) && (
-                                    <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button aria-haspopup="true" size="icon" variant="ghost">
-                                                    <MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span>
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                <DropdownMenuItem onSelect={() => {
-                                                  setSelectedUser(user);
-                                                  setViewUserDialogOpen(true);
-                                                }}>
-                                                  <Eye className="h-4 w-4 mr-2" />
-                                                  View Details
-                                                </DropdownMenuItem>
-                                                {canManagePerms && (
-                                                  <DropdownMenuItem onSelect={() => {
-                                                    setSelectedUser(user);
-                                                    setEditUserDialogOpen(true);
-                                                  }}>
-                                                    <Edit className="h-4 w-4 mr-2" />
-                                                    Edit User
-                                                  </DropdownMenuItem>
-                                                )}
-                                                {canManagePerms && (
-                                                  <DropdownMenuItem onSelect={() => {
-                                                    setSelectedUser(user);
-                                                    setChangeRoleDialogOpen(true);
-                                                  }}>
-                                                    <UserCog className="h-4 w-4 mr-2" />
-                                                    Change Role
-                                                  </DropdownMenuItem>
-                                                )}
-                                                {canManagePerms && (
-                                                  <DropdownMenuItem onSelect={() => {
-                                                    setSelectedUser(user);
-                                                    setChangeTeamDialogOpen(true);
-                                                  }}>
-                                                    <Users2 className="h-4 w-4 mr-2" />
-                                                    Change Team
-                                                  </DropdownMenuItem>
-                                                )}
-                                                {canManagePerms && (
-                                                  <DropdownMenuItem 
-                                                    className='text-destructive focus:text-destructive focus:bg-destructive/10'
-                                                    onSelect={() => setDeleteUserDialog({ open: true, user, confirmText: '' })}
-                                                  >
-                                                    <Trash2 className="h-4 w-4 mr-2" />
-                                                    Delete User
-                                                  </DropdownMenuItem>
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
+                  {isLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                        {(canManagePerms || userIsHead) && <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
+                      </TableRow>
+                    ))
+                  ) : (
+                    filteredUsers?.map(user => (
+                      <TableRow key={user.uid} className={cn(user.teamName === 'Unassigned' && 'bg-destructive/10')}>
+                        <TableCell className="font-medium">
+                          <div>
+                            <div>{user.displayName}</div>
+                            <div className="text-xs text-muted-foreground md:hidden mt-1">{user.email}</div>
+                            <div className={cn('text-xs sm:hidden mt-1', user.teamName === 'Unassigned' && 'text-destructive')}>
+                              Team: {user.teamName}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className='text-muted-foreground hidden md:table-cell'>{user.email}</TableCell>
+                        <TableCell><Badge variant={user.role === 'Core' ? 'default' : 'secondary'}>{user.role}</Badge></TableCell>
+                        <TableCell className={cn('font-medium hidden sm:table-cell', user.teamName === 'Unassigned' && 'text-destructive')}>{user.teamName}</TableCell>
+                        {(canManagePerms || (userIsHead && user.uid !== userProfile?.uid)) && (
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                  <MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onSelect={() => {
+                                  setSelectedUser(user);
+                                  setViewUserDialogOpen(true);
+                                }}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
+                                {canManagePerms && (
+                                  <DropdownMenuItem onSelect={() => {
+                                    setSelectedUser(user);
+                                    setEditUserDialogOpen(true);
+                                  }}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit User
+                                  </DropdownMenuItem>
                                 )}
-                            </TableRow>
-                        ))
-                    )}
-                    {!isLoading && filteredUsers?.length === 0 && (
-                         <TableRow>
-                           <TableCell colSpan={canManagePerms || userIsHead ? 5 : 4} className="h-24 text-center">
-                             {searchQuery || roleFilter !== 'all' || teamFilter !== 'all' 
-                               ? 'No users match your filters.' 
-                               : 'No users found. Get started by adding a user.'}
-                           </TableCell>
-                         </TableRow>
-                    )}
+                                {canManagePerms && (
+                                  <DropdownMenuItem onSelect={() => {
+                                    setSelectedUser(user);
+                                    setChangeRoleDialogOpen(true);
+                                  }}>
+                                    <UserCog className="h-4 w-4 mr-2" />
+                                    Change Role
+                                  </DropdownMenuItem>
+                                )}
+                                {canManagePerms && (
+                                  <DropdownMenuItem onSelect={() => {
+                                    setSelectedUser(user);
+                                    setChangeTeamDialogOpen(true);
+                                  }}>
+                                    <Users2 className="h-4 w-4 mr-2" />
+                                    Change Team
+                                  </DropdownMenuItem>
+                                )}
+                                {canManagePerms && (
+                                  <DropdownMenuItem
+                                    className='text-destructive focus:text-destructive focus:bg-destructive/10'
+                                    onSelect={() => setDeleteUserDialog({ open: true, user, confirmText: '' })}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete User
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
+                  {!isLoading && filteredUsers?.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={canManagePerms || userIsHead ? 5 : 4} className="h-24 text-center">
+                        {searchQuery || roleFilter !== 'all' || teamFilter !== 'all'
+                          ? 'No users match your filters.'
+                          : 'No users found. Get started by adding a user.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
-                </Table>
-              </div>
-            </CardContent>
+              </Table>
+            </div>
+          </CardContent>
         </Card>
       </div>
 
       {canCreateUsers(userProfile) && (
-        <AddUserDialog 
-          isOpen={isAddUserDialogOpen} 
-          setIsOpen={setAddUserDialogOpen} 
-          teams={teams || []} 
+        <AddUserDialog
+          isOpen={isAddUserDialogOpen}
+          setIsOpen={setAddUserDialogOpen}
+          teams={teams || []}
         />
       )}
       {canCreateTeams(userProfile) && (
@@ -549,7 +550,7 @@ export default function TeamsPage() {
       {canManagePerms && (
         <EditUserDialog
           isOpen={isEditUserDialogOpen}
-          setIsOpen={(open) => {
+          setIsOpen={(open: boolean) => {
             setEditUserDialogOpen(open);
             if (!open) {
               setSelectedUser(null);
@@ -604,7 +605,7 @@ export default function TeamsPage() {
             <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <p>
-                Are you sure you want to permanently delete <strong>{deleteUserDialog.user?.displayName}</strong>? 
+                Are you sure you want to permanently delete <strong>{deleteUserDialog.user?.displayName}</strong>?
                 This action cannot be undone and will:
               </p>
               <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
@@ -629,8 +630,8 @@ export default function TeamsPage() {
             <AlertDialogCancel onClick={() => setDeleteUserDialog({ open: false, user: null, confirmText: '' })}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteUser} 
+            <AlertDialogAction
+              onClick={handleDeleteUser}
               disabled={deleteUserDialog.confirmText !== deleteUserDialog.user?.email}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -645,7 +646,7 @@ export default function TeamsPage() {
             <AlertDialogTitle>Delete Team</AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <p>
-                Are you sure you want to permanently delete the team <strong>"{deleteTeamDialog.team?.name}"</strong>? 
+                Are you sure you want to permanently delete the team <strong>"{deleteTeamDialog.team?.name}"</strong>?
                 This action cannot be undone and will:
               </p>
               <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
@@ -670,8 +671,8 @@ export default function TeamsPage() {
             <AlertDialogCancel onClick={() => setDeleteTeamDialog({ open: false, team: null, confirmText: '' })}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteTeam} 
+            <AlertDialogAction
+              onClick={handleDeleteTeam}
               disabled={deleteTeamDialog.confirmText !== deleteTeamDialog.team?.name}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -680,6 +681,6 @@ export default function TeamsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

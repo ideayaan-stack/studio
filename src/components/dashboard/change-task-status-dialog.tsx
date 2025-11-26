@@ -19,6 +19,8 @@ import type { Task } from '@/lib/types';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { canSeeAllTasks, isHead } from '@/lib/permissions';
 
+import { updateTaskStatusAction } from '@/firebase/actions/task-actions';
+
 interface ChangeTaskStatusDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
@@ -30,15 +32,18 @@ export function ChangeTaskStatusDialog({ isOpen, setIsOpen, task }: ChangeTaskSt
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<Task['status']>('Pending');
+  const [completionReport, setCompletionReport] = useState('');
 
   useEffect(() => {
     if (task && isOpen) {
       setStatus(task.status);
+      setCompletionReport(task.completionReport || '');
     }
   }, [task, isOpen]);
 
   const handleClose = () => {
     setStatus('Pending');
+    setCompletionReport('');
     setIsOpen(false);
   };
 
@@ -60,11 +65,11 @@ export function ChangeTaskStatusDialog({ isOpen, setIsOpen, task }: ChangeTaskSt
 
     setIsLoading(true);
     try {
-      const taskDocRef = doc(db, 'tasks', task.id);
-      await updateDoc(taskDocRef, {
-        status,
-        updatedAt: Timestamp.now(),
-      });
+      const result = await updateTaskStatusAction(task.id, status, completionReport.trim());
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
       toast({
         title: 'Status Updated',
@@ -123,6 +128,19 @@ export function ChangeTaskStatusDialog({ isOpen, setIsOpen, task }: ChangeTaskSt
               </SelectContent>
             </Select>
           </div>
+
+          {status === 'Completed' && (
+            <div className="space-y-2">
+              <Label htmlFor="report">Completion Report (Optional)</Label>
+              <textarea
+                id="report"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Briefly describe what was done..."
+                value={completionReport}
+                onChange={(e) => setCompletionReport(e.target.value)}
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>

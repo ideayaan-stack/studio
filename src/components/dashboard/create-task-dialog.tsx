@@ -31,7 +31,7 @@ import { Users } from 'lucide-react';
 
 const taskSchema = z.object({
   title: z.string().min(3, { message: 'Title must be at least 3 characters' }),
-  description: z.string().min(5, { message: 'Description must be at least 5 characters' }),
+  description: z.string().optional(),
   teamId: z.string().min(1, { message: 'Team is required' }),
   assigneeId: z.string().optional(),
   deadline: z.string().optional(),
@@ -119,7 +119,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
 
       await addDoc(collection(db, 'tasks'), {
         title: data.title,
-        description: data.description,
+        description: data.description || '',
         status: data.status,
         teamId: data.teamId,
         assignee: assigneeData || {
@@ -144,7 +144,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
           const assignee = users.find(u => u.uid === data.assigneeId);
           // Browser notification
           await notifyTaskAssignment(data.title, userProfile.displayName || 'Someone');
-          
+
           // Email notification (if email is available)
           if (assignee?.email) {
             const deadlineStr = format(deadlineDate, 'MMM dd, yyyy HH:mm');
@@ -153,7 +153,8 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
               assignee.displayName || assignee.email,
               data.title,
               deadlineStr,
-              userProfile.displayName || 'Someone'
+              userProfile.displayName || 'Someone',
+              availableTeams.find(t => t.id === data.teamId)?.name || 'Unknown Team'
             );
           }
         } catch (notifError) {
@@ -205,7 +206,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor="description">Description (Optional)</Label>
             <Textarea
               id="description"
               {...register('description')}
@@ -352,7 +353,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
             </Button>
           </DialogFooter>
         </form>
-        
+
         <MultiSelectAssignDialog
           isOpen={isMultiSelectOpen}
           setIsOpen={setIsMultiSelectOpen}

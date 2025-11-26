@@ -8,11 +8,12 @@ import { initializeFirebaseAdmin } from '../firebase-admin';
 import type { Role } from '@/lib/types';
 
 interface CreateUserParams {
-    email: string;
-    password: string;
-    displayName: string;
-    role: Role;
-    teamId?: string;
+  email: string;
+  password: string;
+  displayName: string;
+  role: Role;
+  teamId?: string;
+  teamIds?: string[];
 }
 
 /**
@@ -26,7 +27,7 @@ export async function createUserAction(params: CreateUserParams): Promise<{ erro
     const auth = getAuth(adminApp);
     const db = getFirestore(adminApp);
 
-    const { email, password, displayName, role, teamId } = params;
+    const { email, password, displayName, role, teamId, teamIds } = params;
 
     // 1. Create user in Firebase Auth
     const userRecord = await auth.createUser({
@@ -45,12 +46,13 @@ export async function createUserAction(params: CreateUserParams): Promise<{ erro
       photoURL: userRecord.photoURL || null,
       role: role,
       teamId: teamId || '',
+      teamIds: teamIds || [],
     };
-    
+
     await db.collection('users').doc(userRecord.uid).set(userProfileData);
 
     return {};
-    
+
   } catch (error: any) {
     console.error('Error creating user with server action:', error);
     console.error('Error details:', {
@@ -58,10 +60,10 @@ export async function createUserAction(params: CreateUserParams): Promise<{ erro
       message: error.message,
       stack: error.stack,
     });
-    
+
     // Provide a more user-friendly error message
     let message = 'An unexpected error occurred.';
-    
+
     if (error.message?.includes('service account') || error.message?.includes('FIREBASE_SERVICE_ACCOUNT_JSON')) {
       message = 'Firebase Admin SDK is not configured. Please set up the service account credentials.';
     } else if (error.code === 'auth/email-already-exists') {
@@ -75,7 +77,7 @@ export async function createUserAction(params: CreateUserParams): Promise<{ erro
     } else if (error.message) {
       message = error.message;
     }
-    
+
     return { error: message };
   }
 }
@@ -98,7 +100,7 @@ export async function deleteUserAction(uid: string): Promise<{ error?: string }>
     await db.collection('users').doc(uid).delete();
 
     return {};
-    
+
   } catch (error: any) {
     console.error('Error deleting user with server action:', error);
     console.error('Error details:', {
@@ -106,9 +108,9 @@ export async function deleteUserAction(uid: string): Promise<{ error?: string }>
       message: error.message,
       stack: error.stack,
     });
-    
+
     let message = 'An unexpected error occurred while deleting the user.';
-    
+
     if (error.message?.includes('service account') || error.message?.includes('FIREBASE_SERVICE_ACCOUNT_JSON')) {
       message = 'Firebase Admin SDK is not configured. Please set up the service account credentials.';
     } else if (error.code === 'auth/user-not-found') {
@@ -116,7 +118,7 @@ export async function deleteUserAction(uid: string): Promise<{ error?: string }>
     } else if (error.message) {
       message = error.message;
     }
-    
+
     return { error: message };
   }
 }
@@ -132,7 +134,7 @@ export async function updateUserRoleAction(uid: string, role: Role): Promise<{ e
     await db.collection('users').doc(uid).update({ role });
 
     return {};
-    
+
   } catch (error: any) {
     console.error('Error updating user role:', error);
     return { error: error.message || 'Failed to update user role.' };
@@ -142,16 +144,22 @@ export async function updateUserRoleAction(uid: string, role: Role): Promise<{ e
 /**
  * Updates a user's team assignment in Firestore.
  */
-export async function updateUserTeamAction(uid: string, teamId: string): Promise<{ error?: string }> {
+export async function updateUserTeamAction(uid: string, teamId: string, teamIds?: string[]): Promise<{ error?: string }> {
   try {
     const adminApp = initializeFirebaseAdmin();
     const db = getFirestore(adminApp);
 
     const finalTeamId = teamId === 'unassigned' || teamId === '' ? '' : teamId;
-    await db.collection('users').doc(uid).update({ teamId: finalTeamId });
+    const updateData: any = { teamId: finalTeamId };
+
+    if (teamIds) {
+      updateData.teamIds = teamIds;
+    }
+
+    await db.collection('users').doc(uid).update(updateData);
 
     return {};
-    
+
   } catch (error: any) {
     console.error('Error updating user team:', error);
     return { error: error.message || 'Failed to update user team.' };

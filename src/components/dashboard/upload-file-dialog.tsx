@@ -43,6 +43,15 @@ export function UploadFileDialog({ isOpen, setIsOpen, teams, defaultTeamId }: Up
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          variant: 'destructive',
+          title: 'File too large',
+          description: 'Please select a file smaller than 5MB.',
+        });
+        e.target.value = ''; // Reset input
+        return;
+      }
       setSelectedFile(file);
     }
   };

@@ -10,6 +10,7 @@ export interface UserProfile {
   photoURL?: string | null;
   role: Role;
   teamId?: string;
+  teamIds?: string[];
 }
 
 export type NavItem = {
@@ -34,6 +35,7 @@ export interface Task {
   };
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  completionReport?: string;
 }
 
 

@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -11,12 +9,14 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import type { UserProfile, Team, Role } from '@/lib/types';
+import type { UserProfile, Team } from '@/lib/types';
 import { canManagePermissions } from '@/lib/permissions';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { updateUserTeamAction } from '@/firebase/actions/user-actions';
 
 interface ChangeUserTeamDialogProps {
@@ -30,56 +30,70 @@ export function ChangeUserTeamDialog({ isOpen, setIsOpen, user, teams }: ChangeU
   const { userProfile } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedTeamId, setSelectedTeamId] = useState<string>('unassigned');
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (user && isOpen) {
-      setSelectedTeamId(user.teamId || 'unassigned');
+      setSelectedTeamIds(user.teamIds || (user.teamId ? [user.teamId] : []));
     }
   }, [user, isOpen]);
 
   const handleClose = () => {
-    setSelectedTeamId('unassigned');
+    setSelectedTeamIds([]);
     setIsOpen(false);
+  };
+
+  const toggleTeam = (teamId: string) => {
+    setSelectedTeamIds(prev =>
+      prev.includes(teamId)
+        ? prev.filter(id => id !== teamId)
+        : [...prev, teamId]
+    );
   };
 
   const handleSubmit = async () => {
     if (!user || !canManagePermissions(userProfile)) return;
 
-    const finalTeamId = selectedTeamId === 'unassigned' ? '' : selectedTeamId;
-    
-    if (finalTeamId === user.teamId) {
+    // Check if changes were made
+    const currentTeamIds = user.teamIds || (user.teamId ? [user.teamId] : []);
+    const hasChanges = selectedTeamIds.length !== currentTeamIds.length ||
+      !selectedTeamIds.every(id => currentTeamIds.includes(id));
+
+    if (!hasChanges) {
       toast({
         variant: 'default',
         title: 'No Change',
-        description: 'The team assignment is already set to this value.',
+        description: 'The team assignments are already set to these values.',
       });
       return;
     }
 
     setIsLoading(true);
     try {
-      const result = await updateUserTeamAction(user.uid, selectedTeamId);
-      
+      // For backward compatibility, set the first team as primary
+      const primaryTeamId = selectedTeamIds.length > 0 ? selectedTeamIds[0] : '';
+
+      const result = await updateUserTeamAction(user.uid, primaryTeamId, selectedTeamIds);
+
       if (result.error) {
         throw new Error(result.error);
       }
 
-      const teamName = selectedTeamId === 'unassigned' 
-        ? 'Unassigned' 
-        : teams.find(t => t.id === selectedTeamId)?.name || 'Unknown';
+      const teamNames = selectedTeamIds.length > 0
+        ? teams.filter(t => selectedTeamIds.includes(t.id)).map(t => t.name).join(', ')
+        : 'Unassigned';
 
       toast({
-        title: 'Team Updated',
-        description: `${user.displayName} has been ${selectedTeamId === 'unassigned' ? 'removed from' : 'assigned to'} ${teamName}.`,
+        title: 'Teams Updated',
+        description: `${user.displayName} has been assigned to: ${teamNames}.`,
       });
 
       handleClose();
     } catch (error: any) {
-      console.error('Error updating user team:', error);
+      console.error('Error updating user teams:', error);
       toast({
         variant: 'destructive',
-        title: 'Failed to update team',
+        title: 'Failed to update teams',
         description: error.message || 'An unexpected error occurred.',
       });
     } finally {
@@ -92,6 +106,7 @@ export function ChangeUserTeamDialog({ isOpen, setIsOpen, user, teams }: ChangeU
   }
 
   const isTeamRequired = user.role === 'Head' || user.role === 'Volunteer';
+  const availableTeams = teams.filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core');
 
   return (
     <Dialog
@@ -104,45 +119,95 @@ export function ChangeUserTeamDialog({ isOpen, setIsOpen, user, teams }: ChangeU
         }
       }}
     >
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Change User Team</DialogTitle>
+          <DialogTitle>Change User Teams</DialogTitle>
           <DialogDescription>
-            Update the team assignment for {user.displayName}.
+            Update the team assignments for {user.displayName}.
           </DialogDescription>
         </DialogHeader>
+
         <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="teamId">Team {isTeamRequired && '*'}</Label>
-            <Select
-              value={selectedTeamId}
-              onValueChange={setSelectedTeamId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={isTeamRequired ? "Select a team (required)" : "Select a team (optional)"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">No Team</SelectItem>
-                {teams
-                  .filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core')
-                  .map(team => (
-                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {isTeamRequired && selectedTeamId === 'unassigned' && (
-              <p className="text-xs text-destructive">Team is required for Head and Volunteer roles</p>
+          <div className="space-y-3">
+            <Label>Teams {isTeamRequired && '*'}</Label>
+
+            {/* Selected Teams Badges */}
+            <div className="flex flex-wrap gap-2 mb-2 min-h-[24px]">
+              {selectedTeamIds.length > 0 ? (
+                selectedTeamIds.map(teamId => {
+                  const team = teams.find(t => t.id === teamId);
+                  return team ? (
+                    <Badge key={teamId} variant="secondary" className="px-2 py-1">
+                      {team.name}
+                      <button
+                        onClick={() => toggleTeam(teamId)}
+                        className="ml-2 hover:text-destructive focus:outline-none"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  ) : null;
+                })
+              ) : (
+                <span className="text-sm text-muted-foreground italic">No teams selected</span>
+              )}
+            </div>
+
+            {/* Team Selection List */}
+            <div className="border rounded-md">
+              <ScrollArea className="h-[200px] p-2">
+                <div className="space-y-1">
+                  {availableTeams.length > 0 ? (
+                    availableTeams.map(team => {
+                      const isSelected = selectedTeamIds.includes(team.id);
+                      return (
+                        <div
+                          key={team.id}
+                          className={`flex items-center space-x-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-muted' : ''}`}
+                          onClick={() => toggleTeam(team.id)}
+                        >
+                          <Checkbox
+                            id={`team-${team.id}`}
+                            checked={isSelected}
+                            onCheckedChange={() => toggleTeam(team.id)}
+                          />
+                          <div className="flex-1">
+                            <Label
+                              htmlFor={`team-${team.id}`}
+                              className="text-sm font-medium cursor-pointer"
+                            >
+                              {team.name}
+                            </Label>
+                            {team.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {team.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-2">No teams available</p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+
+            {isTeamRequired && selectedTeamIds.length === 0 && (
+              <p className="text-xs text-destructive">At least one team is required for Head and Volunteer roles</p>
             )}
           </div>
         </div>
+
         <DialogFooter>
           <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
             Cancel
           </Button>
-          <Button 
-            type="button" 
-            onClick={handleSubmit} 
-            disabled={isLoading || (isTeamRequired && selectedTeamId === 'unassigned')}
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isLoading || (isTeamRequired && selectedTeamIds.length === 0)}
           >
             {isLoading ? (
               <>
@@ -150,7 +215,7 @@ export function ChangeUserTeamDialog({ isOpen, setIsOpen, user, teams }: ChangeU
                 Updating...
               </>
             ) : (
-              'Update Team'
+              'Update Teams'
             )}
           </Button>
         </DialogFooter>

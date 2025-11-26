@@ -30,7 +30,7 @@ interface TaskCardProps {
 
 export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusChange, onAssign, onDelete, isBulkMode, isSelected, onToggleSelect }: TaskCardProps) {
   const { userProfile } = useAuth();
-  
+
   // Core, Semi-core, and heads can fully edit.
   const canFullyEdit = canSeeAllTasks(userProfile) || (isHead(userProfile) && userProfile?.teamId === task.teamId);
   // The assigned volunteer can only update the status.
@@ -94,7 +94,7 @@ export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusCha
                     </DropdownMenuItem>
                   )}
                   {onDelete && (
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       className="text-destructive focus:text-destructive focus:bg-destructive/10"
                       onSelect={() => onDelete(task)}
                     >
@@ -118,6 +118,14 @@ export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusCha
       </CardHeader>
       <CardContent className="p-4 pt-0 space-y-3">
         <p className="text-sm text-muted-foreground">{task.description}</p>
+
+        {task.status === 'Completed' && task.completionReport && (
+          <div className="bg-muted/50 p-2 rounded-md text-sm">
+            <p className="font-semibold text-xs mb-1">Completion Report:</p>
+            <p className="text-muted-foreground">{task.completionReport}</p>
+          </div>
+        )}
+
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <Calendar className="h-3.5 w-3.5" />
@@ -126,14 +134,14 @@ export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusCha
           <Badge variant={getStatusVariant(task.status)}>{task.status}</Badge>
         </div>
         <div className="flex items-center gap-2 pt-2">
-            <AvatarWithRing
-              src={task.assignee.avatarUrl}
-              alt={task.assignee.name}
-              fallback={getInitials(task.assignee.name)}
-              role={undefined} // Task assignee role not available in task data
-              size="sm"
-            />
-            <span className="text-sm font-medium">{task.assignee.name}</span>
+          <AvatarWithRing
+            src={task.assignee.avatarUrl}
+            alt={task.assignee.name}
+            fallback={getInitials(task.assignee.name)}
+            role={undefined} // Task assignee role not available in task data
+            size="sm"
+          />
+          <span className="text-sm font-medium">{task.assignee.name}</span>
         </div>
       </CardContent>
     </Card>

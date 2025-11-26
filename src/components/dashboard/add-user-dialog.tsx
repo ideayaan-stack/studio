@@ -23,6 +23,9 @@ import type { Team, Role } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { canCreateUsers } from '@/lib/permissions';
 import { sendWelcomeEmail } from '@/lib/email-service';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const roles = ['Core', 'Semi-core', 'Head', 'Volunteer', 'Unassigned'] as const;
 
@@ -31,17 +34,17 @@ const addUserSchema = z.object({
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
   displayName: z.string().min(2, { message: 'Display name is required' }),
   role: z.enum(roles, { required_error: 'Role is required' }),
-  teamId: z.string().optional(),
+  teamIds: z.array(z.string()).optional(),
 }).refine((data) => {
   // Team is required only for Head and Volunteer roles
   // Core and Semi-core can be created without teams
-  if ((data.role === 'Head' || data.role === 'Volunteer') && !data.teamId) {
+  if ((data.role === 'Head' || data.role === 'Volunteer') && (!data.teamIds || data.teamIds.length === 0)) {
     return false;
   }
   return true;
 }, {
-  message: 'Team is required for Head and Volunteer roles',
-  path: ['teamId'],
+  message: 'At least one team is required for Head and Volunteer roles',
+  path: ['teamIds'],
 });
 
 type AddUserInput = z.infer<typeof addUserSchema>;
@@ -72,25 +75,45 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
   } = useForm<AddUserInput>({
     resolver: zodResolver(addUserSchema),
     defaultValues: {
-      teamId: '',
+      teamIds: [],
     }
   });
 
   const selectedRole = watch('role');
+  const selectedTeamIds = watch('teamIds') || [];
   // Team is required only for Head and Volunteer, optional for Core and Semi-core
   const isTeamRequired = selectedRole === 'Head' || selectedRole === 'Volunteer';
+
+  const toggleTeam = (teamId: string) => {
+    const current = selectedTeamIds;
+    if (current.includes(teamId)) {
+      setValue('teamIds', current.filter(id => id !== teamId), { shouldValidate: true });
+    } else {
+      setValue('teamIds', [...current, teamId], { shouldValidate: true });
+    }
+  };
 
   const onSubmit: SubmitHandler<AddUserInput> = async (data) => {
     setIsLoading(true);
     // Core and Semi-core can be created without teams
     // Head and Volunteer must have teams
-    const finalTeamId = (data.role === 'Core' || data.role === 'Semi-core' || !data.teamId || data.teamId === 'unassigned')
-      ? ''
-      : data.teamId;
+    const finalTeamIds = (data.role === 'Core' || data.role === 'Semi-core' || !data.teamIds)
+      ? []
+      : data.teamIds;
 
     try {
-      // This now calls the server-side user creation, which doesn't log the admin out.
-      const result = await createUser(data.email, data.password, data.displayName, data.role, finalTeamId);
+      // Pass the first team as primary teamId for backward compatibility, and full list as teamIds
+      const primaryTeamId = finalTeamIds.length > 0 ? finalTeamIds[0] : '';
+
+      const result = await createUser(
+        data.email,
+        data.password,
+        data.displayName,
+        data.role,
+        primaryTeamId,
+        finalTeamIds // Pass all teams
+      );
+
       if (result?.error) {
         throw new Error(result.error);
       }
@@ -102,19 +125,19 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
 
       // Send welcome email
       try {
-        let teamName = 'Unassigned';
-        if (finalTeamId) {
-          const team = teams.find(t => t.id === finalTeamId);
-          if (team) {
-            teamName = team.name;
-          }
+        let teamNames = 'Unassigned';
+        if (finalTeamIds.length > 0) {
+          teamNames = teams
+            .filter(t => finalTeamIds.includes(t.id))
+            .map(t => t.name)
+            .join(', ');
         }
 
         await sendWelcomeEmail(
           data.email,
           data.displayName,
           data.role,
-          teamName
+          teamNames
         );
       } catch (emailError) {
         console.error('Failed to send welcome email:', emailError);
@@ -150,7 +173,7 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
         <DialogHeader>
           <DialogTitle>Add New User</DialogTitle>
           <DialogDescription>
-            Create a new account and assign a role and team.
+            Create a new account and assign a role and teams.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
@@ -187,30 +210,77 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
             {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
           </div>
 
-          <div className={cn("space-y-2 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-100')}>
-            <Label htmlFor="teamId">Team {isTeamRequired && '*'}</Label>
-            <Select
-              value={watch('teamId') || 'unassigned'}
-              onValueChange={(value) => setValue('teamId', value === 'unassigned' ? '' : value, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={isTeamRequired ? "Select a team (required)" : "Select a team (optional)"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">No Team</SelectItem>
-                {teams
-                  .filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core')
-                  .map(team => (
-                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {errors.teamId && <p className="text-xs text-destructive">{errors.teamId.message}</p>}
-            {isTeamRequired && !watch('teamId') && (
-              <p className="text-xs text-muted-foreground">Team is required for Head and Volunteer roles</p>
+          <div className={cn("space-y-3 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-100')}>
+            <Label>Teams {isTeamRequired && '*'}</Label>
+
+            {/* Selected Teams Badges */}
+            <div className="flex flex-wrap gap-2 mb-2 min-h-[24px]">
+              {selectedTeamIds.length > 0 ? (
+                selectedTeamIds.map(teamId => {
+                  const team = teams.find(t => t.id === teamId);
+                  return team ? (
+                    <Badge key={teamId} variant="secondary" className="px-2 py-1">
+                      {team.name}
+                      <button
+                        type="button"
+                        onClick={() => toggleTeam(teamId)}
+                        className="ml-2 hover:text-destructive focus:outline-none"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  ) : null;
+                })
+              ) : (
+                <span className="text-sm text-muted-foreground italic">No teams selected</span>
+              )}
+            </div>
+
+            {/* Team Selection List */}
+            <div className="border rounded-md">
+              <ScrollArea className="h-[200px] p-2">
+                <div className="space-y-1">
+                  {teams
+                    .filter(team => team.id && team.id.trim() !== '' && team.name !== 'Core')
+                    .map(team => {
+                      const isSelected = selectedTeamIds.includes(team.id);
+                      return (
+                        <div
+                          key={team.id}
+                          className={`flex items-center space-x-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-muted' : ''}`}
+                          onClick={() => toggleTeam(team.id)}
+                        >
+                          <Checkbox
+                            id={`team-${team.id}`}
+                            checked={isSelected}
+                            onCheckedChange={() => toggleTeam(team.id)}
+                          />
+                          <div className="flex-1">
+                            <Label
+                              htmlFor={`team-${team.id}`}
+                              className="text-sm font-medium cursor-pointer"
+                            >
+                              {team.name}
+                            </Label>
+                            {team.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {team.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  {teams.length === 0 && <p className="text-sm text-muted-foreground p-2">No teams available</p>}
+                </div>
+              </ScrollArea>
+            </div>
+            {errors.teamIds && <p className="text-xs text-destructive">{errors.teamIds.message}</p>}
+            {isTeamRequired && selectedTeamIds.length === 0 && (
+              <p className="text-xs text-muted-foreground">At least one team is required for Head and Volunteer roles</p>
             )}
             {!isTeamRequired && (
-              <p className="text-xs text-muted-foreground">Team can be assigned later</p>
+              <p className="text-xs text-muted-foreground">Teams can be assigned later</p>
             )}
           </div>
 

@@ -79,7 +79,7 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-6rem)] gap-6 p-4 md:p-6">
+    <div className="flex flex-col md:flex-row h-full gap-6 p-4 md:p-6">
       <div className="w-full md:w-64 flex-shrink-0 space-y-4">
         <div>
           <h1 className="text-2xl font-headline font-bold">Settings</h1>

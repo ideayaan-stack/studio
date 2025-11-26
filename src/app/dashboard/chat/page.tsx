@@ -93,7 +93,11 @@ export default function ChatPage() {
       // Core and Semi-core see all teams
       return collection(db, 'teams');
     }
-    // Head and Volunteers see only their team
+    // Head and Volunteers see only their teams
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'teams'), where('__name__', 'in', userProfile.teamIds));
+    }
+    // Fallback for backward compatibility
     if (userProfile?.teamId) {
       return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
     }
@@ -490,301 +494,303 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col md:grid md:grid-cols-[300px_1fr] h-full rounded-lg border shadow-sm overflow-hidden">
-      {/* Desktop: Always visible sidebar */}
-      <div className="hidden md:flex flex-col border-r">
-        <ChatListContent />
-      </div>
+    <div className="h-full p-4 md:p-6 flex flex-col overflow-hidden">
+      <div className="flex flex-col md:grid md:grid-cols-[300px_1fr] h-full rounded-lg border shadow-sm overflow-hidden">
+        {/* Desktop: Always visible sidebar */}
+        <div className="hidden md:flex flex-col border-r">
+          <ChatListContent />
+        </div>
 
-      {/* Mobile: Sheet for chat list */}
-      {isMobile && (
-        <Sheet open={isChatListOpen} onOpenChange={setIsChatListOpen}>
-          <SheetContent side="left" className="w-[300px] p-0">
-            <ChatListContent />
-          </SheetContent>
-        </Sheet>
-      )}
-      <div className="flex flex-col h-full flex-1 min-w-0">
-        {selectedChat ? (
-          <>
-            <div className="p-4 border-b flex items-center gap-4">
-              {isMobile && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="md:hidden"
-                  onClick={() => setIsChatListOpen(true)}
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-              )}
-              <Avatar>
-                {selectedChat.team?.iconURL && !selectedChat.isCommon ? (
-                  <AvatarImage src={getFileUrl(selectedChat.team.iconURL) || undefined} alt={selectedChat.name} />
-                ) : null}
-                <AvatarFallback className={cn(selectedChat.isCommon && "bg-primary/10 text-primary")}>
-                  {selectedChat.isCommon ? <Users className="h-5 w-5" /> : selectedChat.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <h2 className="font-semibold text-lg truncate">{selectedChat.name}</h2>
-                <p className='text-sm text-muted-foreground truncate'>
-                  {selectedChat.isCommon
-                    ? 'Community chat with all members'
-                    : `Chat with ${selectedChat.name}`}
-                </p>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setIsBackgroundDialogOpen(true)}>
-                    <Palette className="h-4 w-4 mr-2" />
-                    Chat Background
-                  </DropdownMenuItem>
-                  {!selectedChat.isCommon && selectedChat.team && canAccessTeamsPage(userProfile) && (
-                    <DropdownMenuItem onClick={() => setIsTeamIconDialogOpen(true)}>
-                      Change Team Icon
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* Fix scrolling: Added min-h-0 to parent and h-full to ScrollArea */}
-            <div className="flex-1 min-h-0 relative">
-              <ScrollArea ref={scrollAreaRef} className="h-full p-4 md:p-6">
-                {messagesLoading ? (
-                  <div className="space-y-4">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <Skeleton key={i} className="h-16 w-3/4" />
-                    ))}
-                  </div>
-                ) : (
-                  <div
-                    className="space-y-6"
-                    style={chatBackground ? (
-                      chatBackground.startsWith('http') || chatBackground.startsWith('data:')
-                        ? { backgroundImage: `url(${chatBackground})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
-                        : { backgroundColor: chatBackground }
-                    ) : undefined}
+        {/* Mobile: Sheet for chat list */}
+        {isMobile && (
+          <Sheet open={isChatListOpen} onOpenChange={setIsChatListOpen}>
+            <SheetContent side="left" className="w-[300px] p-0">
+              <ChatListContent />
+            </SheetContent>
+          </Sheet>
+        )}
+        <div className="flex flex-col h-full flex-1 min-w-0">
+          {selectedChat ? (
+            <>
+              <div className="p-4 border-b flex items-center gap-4">
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden"
+                    onClick={() => setIsChatListOpen(true)}
                   >
-                    {messages?.map((message, index) => {
-                      // Date Separator Logic
-                      const prevMessage = index > 0 ? messages[index - 1] : null;
-                      const isNewDay = !prevMessage || !isSameDay(message.timestamp.toDate(), prevMessage.timestamp.toDate());
-
-                      let dateLabel = '';
-                      if (isNewDay) {
-                        const date = message.timestamp.toDate();
-                        if (isToday(date)) dateLabel = 'Today';
-                        else if (isYesterday(date)) dateLabel = 'Yesterday';
-                        else dateLabel = format(date, 'MMMM d, yyyy');
-                      }
-
-                      return (
-                        <div key={message.id}>
-                          {isNewDay && (
-                            <div className="flex justify-center my-4">
-                              <span className="bg-muted text-muted-foreground text-xs px-3 py-1 rounded-full">
-                                {dateLabel}
-                              </span>
-                            </div>
-                          )}
-
-                          {message.deleted ? (
-                            <div className="text-center text-muted-foreground text-sm italic py-2">
-                              This message was deleted
-                            </div>
-                          ) : (
-                            (() => {
-                              const isOwn = message.senderId === userProfile?.uid;
-                              const senderProfile = allUsers?.find(u => u.uid === message.senderId);
-                              const canDelete = isOwn || isCore(userProfile) || isSemiCore(userProfile);
-                              const canEdit = isOwn && !message.edited &&
-                                (new Date().getTime() - message.timestamp.toDate().getTime()) < 15 * 60 * 1000;
-
-                              if (editingMessageId === message.id) {
-                                return (
-                                  <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-                                    <Input
-                                      value={editText}
-                                      onChange={(e) => setEditText(e.target.value)}
-                                      className="flex-1"
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                          e.preventDefault();
-                                          handleSaveEdit();
-                                        }
-                                        if (e.key === 'Escape') {
-                                          setEditingMessageId(null);
-                                          setEditText('');
-                                        }
-                                      }}
-                                      autoFocus
-                                    />
-                                    <Button size="sm" onClick={handleSaveEdit}>Save</Button>
-                                    <Button size="sm" variant="ghost" onClick={() => {
-                                      setEditingMessageId(null);
-                                      setEditText('');
-                                    }}>Cancel</Button>
-                                  </div>
-                                );
-                              }
-
-                              return (
-                                <MessageItem
-                                  message={message}
-                                  isOwn={isOwn}
-                                  userProfile={userProfile}
-                                  senderProfile={senderProfile}
-                                  onReply={handleReply}
-                                  onReact={handleReact}
-                                  onDelete={canDelete ? handleDeleteMessage : undefined}
-                                  onEdit={canEdit ? handleEditMessage : undefined}
-                                  showAvatar={true}
-                                />
-                              );
-                            })()
-                          )}
-                        </div>
-                      );
-                    })}
-                    {messages?.length === 0 && (
-                      <div className="text-center text-muted-foreground py-8">
-                        No messages yet. Start the conversation!
-                      </div>
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                )}
+                <Avatar>
+                  {selectedChat.team?.iconURL && !selectedChat.isCommon ? (
+                    <AvatarImage src={getFileUrl(selectedChat.team.iconURL) || undefined} alt={selectedChat.name} />
+                  ) : null}
+                  <AvatarFallback className={cn(selectedChat.isCommon && "bg-primary/10 text-primary")}>
+                    {selectedChat.isCommon ? <Users className="h-5 w-5" /> : selectedChat.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <h2 className="font-semibold text-lg truncate">{selectedChat.name}</h2>
+                  <p className='text-sm text-muted-foreground truncate'>
+                    {selectedChat.isCommon
+                      ? 'Community chat with all members'
+                      : `Chat with ${selectedChat.name}`}
+                  </p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Settings2 className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setIsBackgroundDialogOpen(true)}>
+                      <Palette className="h-4 w-4 mr-2" />
+                      Chat Background
+                    </DropdownMenuItem>
+                    {!selectedChat.isCommon && selectedChat.team && canAccessTeamsPage(userProfile) && (
+                      <DropdownMenuItem onClick={() => setIsTeamIconDialogOpen(true)}>
+                        Change Team Icon
+                      </DropdownMenuItem>
                     )}
-                    <div ref={messagesEndRef} />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Fix scrolling: Native div for better reliability */}
+              <div className="flex-1 min-h-0 relative flex flex-col">
+                <div
+                  ref={scrollAreaRef}
+                  className="flex-1 overflow-y-auto p-4 md:p-6"
+                >
+                  {messagesLoading ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-16 w-3/4" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      className="space-y-6 min-h-full"
+                      style={chatBackground ? (
+                        chatBackground.startsWith('http') || chatBackground.startsWith('data:')
+                          ? { backgroundImage: `url(${chatBackground})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
+                          : { backgroundColor: chatBackground }
+                      ) : undefined}
+                    >
+                      {messages?.map((message, index) => {
+                        // Date Separator Logic
+                        const prevMessage = index > 0 ? messages[index - 1] : null;
+                        const isNewDay = !prevMessage || !isSameDay(message.timestamp.toDate(), prevMessage.timestamp.toDate());
+
+                        return (
+                          <div key={message.id}>
+                            {isNewDay && (
+                              <div className="flex items-center justify-center my-4">
+                                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                                  {isToday(message.timestamp.toDate())
+                                    ? 'Today'
+                                    : isYesterday(message.timestamp.toDate())
+                                      ? 'Yesterday'
+                                      : format(message.timestamp.toDate(), 'MMMM d, yyyy')}
+                                </span>
+                              </div>
+                            )}
+                            {message.deleted ? (
+                              <div className="text-center text-muted-foreground text-sm italic py-2">
+                                This message was deleted
+                              </div>
+                            ) : (
+                              (() => {
+                                const isOwn = message.senderId === userProfile?.uid;
+                                const senderProfile = allUsers?.find(u => u.uid === message.senderId);
+                                const canDelete = isOwn || isCore(userProfile) || isSemiCore(userProfile);
+                                const canEdit = isOwn && !message.edited &&
+                                  (new Date().getTime() - message.timestamp.toDate().getTime()) < 15 * 60 * 1000;
+
+                                if (editingMessageId === message.id) {
+                                  return (
+                                    <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                                      <Input
+                                        value={editText}
+                                        onChange={(e) => setEditText(e.target.value)}
+                                        className="flex-1"
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSaveEdit();
+                                          }
+                                          if (e.key === 'Escape') {
+                                            setEditingMessageId(null);
+                                            setEditText('');
+                                          }
+                                        }}
+                                        autoFocus
+                                      />
+                                      <Button size="sm" onClick={handleSaveEdit}>Save</Button>
+                                      <Button size="sm" variant="ghost" onClick={() => {
+                                        setEditingMessageId(null);
+                                        setEditText('');
+                                      }}>Cancel</Button>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <MessageItem
+                                    message={message}
+                                    isOwn={isOwn}
+                                    userProfile={userProfile}
+                                    senderProfile={senderProfile}
+                                    onReply={handleReply}
+                                    onReact={handleReact}
+                                    onDelete={canDelete ? handleDeleteMessage : undefined}
+                                    onEdit={canEdit ? handleEditMessage : undefined}
+                                    showAvatar={true}
+                                  />
+                                );
+                              })()
+                            )}
+                          </div>
+                        );
+                      })}
+                      {messages?.length === 0 && (
+                        <div className="text-center text-muted-foreground py-8">
+                          No messages yet. Start the conversation!
+                        </div>
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="p-4 border-t bg-card">
+                {replyTo && (
+                  <div className="mb-2 p-2 bg-muted rounded-lg flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-muted-foreground">Replying to {replyTo.senderName}</p>
+                      <p className="text-sm truncate">{replyTo.text}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setReplyTo(null)}
+                    >
+                      ×
+                    </Button>
                   </div>
                 )}
-              </ScrollArea>
-            </div>
-            <div className="p-4 border-t bg-card">
-              {replyTo && (
-                <div className="mb-2 p-2 bg-muted rounded-lg flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground">Replying to {replyTo.senderName}</p>
-                    <p className="text-sm truncate">{replyTo.text}</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setReplyTo(null)}
-                  >
-                    ×
+                <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Type a message..."
+                    className="flex-1"
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    disabled={isSending}
+                  />
+                  <Button type="submit" size="icon" disabled={isSending || !messageText.trim()}>
+                    {isSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
                   </Button>
-                </div>
-              )}
-              <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                <Input
-                  placeholder="Type a message..."
-                  className="flex-1"
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  disabled={isSending}
-                />
-                <Button type="submit" size="icon" disabled={isSending || !messageText.trim()}>
-                  {isSending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
-              </form>
+                </form>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              Select a chat to start messaging
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Select a chat to start messaging
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* Team Icon Upload Dialog */}
-      {selectedChat?.team && (
-        <Dialog open={isTeamIconDialogOpen} onOpenChange={setIsTeamIconDialogOpen}>
+        {/* Team Icon Upload Dialog */}
+        {
+          selectedChat?.team && (
+            <Dialog open={isTeamIconDialogOpen} onOpenChange={setIsTeamIconDialogOpen}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Change Team Icon</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                  <TeamIconUpload team={selectedChat.team} />
+                </div>
+              </DialogContent>
+            </Dialog>
+          )
+        }
+
+        {/* Chat Background Dialog */}
+        <Dialog open={isBackgroundDialogOpen} onOpenChange={setIsBackgroundDialogOpen}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Change Team Icon</DialogTitle>
+              <DialogTitle>Chat Background</DialogTitle>
             </DialogHeader>
-            <div className="py-4">
-              <TeamIconUpload team={selectedChat.team} />
+            <div className="py-4 space-y-4">
+              <div className="grid grid-cols-4 gap-2">
+                {['', '#f0f0f0', '#e3f2fd', '#f3e5f5', '#fff3e0', '#e8f5e9', '#fce4ec', '#fff9c4'].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={cn(
+                      'h-16 rounded-lg border-2 transition-all',
+                      chatBackground === color ? 'border-primary scale-105' : 'border-transparent'
+                    )}
+                    style={{ backgroundColor: color || 'transparent' }}
+                    onClick={() => setChatBackground(color)}
+                  >
+                    {!color && <span className="text-xs">Default</span>}
+                  </button>
+                ))}
+              </div>
+              <Input
+                placeholder="Or enter image URL or color code (e.g., #f0f0f0)"
+                value={chatBackground && (chatBackground.startsWith('http') || chatBackground.startsWith('#')) ? chatBackground : ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.startsWith('http') || value.startsWith('#') || value === '') {
+                    setChatBackground(value);
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setChatBackground('');
+                  localStorage.removeItem(`chat-background-${selectedTeamId}`);
+                }}
+              >
+                Reset to Default
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
-      )}
 
-      {/* Chat Background Dialog */}
-      <Dialog open={isBackgroundDialogOpen} onOpenChange={setIsBackgroundDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Chat Background</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div className="grid grid-cols-4 gap-2">
-              {['', '#f0f0f0', '#e3f2fd', '#f3e5f5', '#fff3e0', '#e8f5e9', '#fce4ec', '#fff9c4'].map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  className={cn(
-                    'h-16 rounded-lg border-2 transition-all',
-                    chatBackground === color ? 'border-primary scale-105' : 'border-transparent'
-                  )}
-                  style={{ backgroundColor: color || 'transparent' }}
-                  onClick={() => setChatBackground(color)}
-                >
-                  {!color && <span className="text-xs">Default</span>}
-                </button>
-              ))}
-            </div>
-            <Input
-              placeholder="Or enter image URL or color code (e.g., #f0f0f0)"
-              value={chatBackground && (chatBackground.startsWith('http') || chatBackground.startsWith('#')) ? chatBackground : ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value.startsWith('http') || value.startsWith('#') || value === '') {
-                  setChatBackground(value);
-                }
-              }}
-            />
-            <Button
-              variant="outline"
-              onClick={() => {
-                setChatBackground('');
-                localStorage.removeItem(`chat-background-${selectedTeamId}`);
-              }}
-            >
-              Reset to Default
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Message Confirmation */}
-      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, messageId: null })}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Message</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this message? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteMessage}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+        {/* Delete Message Confirmation */}
+        <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, messageId: null })}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Message</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this message? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDeleteMessage}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div >
+    </div >
   );
 }
