@@ -56,10 +56,33 @@ export default function TasksPage() {
     if (canSeeAllTasks(userProfile)) {
       return collection(db, 'tasks');
     }
-    // Team members see tasks associated with their team
+    // Team members see tasks associated with their team(s)
+    // Note: Firestore doesn't support logical OR in a single query easily for this case without multiple queries.
+    // For now, we'll fetch all tasks for the user's teams and filter client-side for strict permissions if needed.
+    // However, since we want to show "Team Tasks" (unassigned) AND "My Tasks" (assigned to me), 
+    // and a user can be in multiple teams, the simplest approach for now is:
+
+    // If user has teamIds (new structure), use 'in' query if possible, or just fetch all tasks and filter.
+    // Given Firestore limitations, fetching by teamId is the most scalable if we assume one primary team context,
+    // but for multiple teams, we might need a different approach.
+
+    // Current approach: Fetch tasks where teamId is in user.teamIds OR assignee.uid == user.uid
+    // Firestore limitation: Can't do OR across different fields easily.
+
+    // Compromise: Fetch tasks for the user's primary team (backward compatibility) OR all tasks if we can't filter easily.
+    // Better: Fetch ALL tasks and filter client-side? No, too much data.
+
+    // Let's stick to the primary team for the main view, but if they have multiple teams, we might miss some.
+    // Ideally, we should query where `teamId` in `user.teamIds`.
+
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'tasks'), where('teamId', 'in', userProfile.teamIds));
+    }
+
     if (userProfile?.teamId) {
       return query(collection(db, 'tasks'), where('teamId', '==', userProfile.teamId));
     }
+
     // Volunteers see only tasks directly assigned to them, even if teamId isn't set
     if (userIsVolunteer && userProfile?.uid) {
       return query(collection(db, 'tasks'), where('assignee.uid', '==', userProfile.uid));
@@ -454,6 +477,7 @@ export default function TasksPage() {
                       isBulkMode={isBulkMode}
                       isSelected={selectedTaskIds.has(task.id)}
                       onToggleSelect={toggleTaskSelection}
+                      teamName={teams?.find(t => t.id === task.teamId)?.name}
                     />
                   ))}
                   {column.tasks.length === 0 && (

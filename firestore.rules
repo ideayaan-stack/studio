@@ -21,7 +21,10 @@ service cloud.firestore {
     }
 
     function isTeamMember(teamId) {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().teamId == teamId;
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+        getUserData().teamId == teamId || 
+        (getUserData().keys().hasAny(['teamIds']) && teamId in getUserData().teamIds)
+      );
     }
     
     // USERS
@@ -46,13 +49,15 @@ service cloud.firestore {
 
     // TASKS
     match /tasks/{taskId} {
-      // Users can read tasks if they are a member of the task's team, or if the task is assigned to them.
-      // Core/Semi-core can read all tasks.
+      // Users can read tasks if:
+      // 1. They are Core/Semi-core
+      // 2. They are the assignee
+      // 3. The task is unassigned (Team Task) AND they are in the team
       allow read: if isSignedIn() && (
         isRole('Core') ||
         isRole('Semi-core') ||
-        isTeamMember(resource.data.teamId) ||
-        isUser(resource.data.assignee.uid)
+        isUser(resource.data.assignee.uid) ||
+        (resource.data.assignee.uid == null && isTeamMember(resource.data.teamId))
       );
 
       // Creating tasks: Core, Semi-core, and Heads can create.
@@ -60,12 +65,18 @@ service cloud.firestore {
 
       // Updating tasks: 
       // Core/Semi-core/Heads can update any task in their realm of control.
-      // Volunteers can only update the status of tasks assigned to them.
+      // Volunteers can only update:
+      // 1. Tasks assigned to them
+      // 2. Unassigned tasks in their team (Team Tasks)
       allow update: if isSignedIn() && (
         isRole('Core') || 
         isRole('Semi-core') ||
         (isRole('Head') && isTeamMember(resource.data.teamId)) ||
-        (isRole('Volunteer') && isUser(resource.data.assignee.uid) && request.resource.data.keys().hasOnly(['status', 'updatedAt', 'completionReport']))
+        (
+          isRole('Volunteer') && 
+          (isUser(resource.data.assignee.uid) || (resource.data.assignee.uid == null && isTeamMember(resource.data.teamId))) && 
+          request.resource.data.keys().hasOnly(['status', 'updatedAt', 'completionReport'])
+        )
       );
 
       // Deleting tasks: Only Core, Semi-core, and Heads of the respective team can delete.

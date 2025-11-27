@@ -163,8 +163,7 @@ export function ChangeUserTeamDialog({ isOpen, setIsOpen, user, teams }: ChangeU
                       return (
                         <div
                           key={team.id}
-                          className={`flex items-center space-x-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-muted' : ''}`}
-                          onClick={() => toggleTeam(team.id)}
+                          className={`flex items-center space-x-3 p-2 rounded-md transition-colors hover:bg-muted/50 ${isSelected ? 'bg-muted' : ''}`}
                         >
                           <Checkbox
                             id={`team-${team.id}`}
@@ -172,12 +171,12 @@ export function ChangeUserTeamDialog({ isOpen, setIsOpen, user, teams }: ChangeU
                             onCheckedChange={() => toggleTeam(team.id)}
                           />
                           <div className="flex-1">
-                            <Label
-                              htmlFor={`team-${team.id}`}
+                            <span
                               className="text-sm font-medium cursor-pointer"
+                              onClick={() => toggleTeam(team.id)}
                             >
                               {team.name}
-                            </Label>
+                            </span>
                             {team.description && (
                               <p className="text-xs text-muted-foreground line-clamp-1">
                                 {team.description}

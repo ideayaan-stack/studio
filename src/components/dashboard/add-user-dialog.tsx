@@ -210,7 +210,7 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
             {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
           </div>
 
-          <div className={cn("space-y-3 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-100')}>
+          <div className={cn("space-y-3 transition-opacity duration-300", isTeamRequired ? 'opacity-100' : 'opacity-50')}>
             <Label>Teams {isTeamRequired && '*'}</Label>
 
             {/* Selected Teams Badges */}
@@ -247,8 +247,7 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
                       return (
                         <div
                           key={team.id}
-                          className={`flex items-center space-x-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-muted/50 ${isSelected ? 'bg-muted' : ''}`}
-                          onClick={() => toggleTeam(team.id)}
+                          className={`flex items-center space-x-3 p-2 rounded-md transition-colors hover:bg-muted/50 ${isSelected ? 'bg-muted' : ''}`}
                         >
                           <Checkbox
                             id={`team-${team.id}`}
@@ -256,12 +255,12 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
                             onCheckedChange={() => toggleTeam(team.id)}
                           />
                           <div className="flex-1">
-                            <Label
-                              htmlFor={`team-${team.id}`}
+                            <span
                               className="text-sm font-medium cursor-pointer"
+                              onClick={() => toggleTeam(team.id)}
                             >
                               {team.name}
-                            </Label>
+                            </span>
                             {team.description && (
                               <p className="text-xs text-muted-foreground line-clamp-1">
                                 {team.description}

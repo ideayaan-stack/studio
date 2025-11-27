@@ -26,9 +26,10 @@ interface TaskCardProps {
   isBulkMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (taskId: string) => void;
+  teamName?: string;
 }
 
-export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusChange, onAssign, onDelete, isBulkMode, isSelected, onToggleSelect }: TaskCardProps) {
+export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusChange, onAssign, onDelete, isBulkMode, isSelected, onToggleSelect, teamName }: TaskCardProps) {
   const { userProfile } = useAuth();
 
   // Core, Semi-core, and heads can fully edit.
@@ -131,7 +132,10 @@ export const TaskCard = React.memo(function TaskCard({ task, onEdit, onStatusCha
             <Calendar className="h-3.5 w-3.5" />
             <span>{format(task.deadline.toDate(), 'MMM dd, yyyy')}</span>
           </div>
-          <Badge variant={getStatusVariant(task.status)}>{task.status}</Badge>
+          <div className="flex gap-2">
+            {teamName && <Badge variant="outline" className="text-[10px] h-5 px-1.5">{teamName}</Badge>}
+            <Badge variant={getStatusVariant(task.status)}>{task.status}</Badge>
+          </div>
         </div>
         <div className="flex items-center gap-2 pt-2">
           <AvatarWithRing

@@ -77,14 +77,25 @@ export function ViewUserDialog({ isOpen, setIsOpen, user, teams }: ViewUserDialo
               </Badge>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Team</span>
-              </div>
-              <span className="text-sm text-muted-foreground">
-                {userTeam?.name || 'Unassigned'}
+                Teams
               </span>
+              <div className="flex flex-wrap gap-1">
+                {user.teamIds && user.teamIds.length > 0 ? (
+                  user.teamIds.map(teamId => {
+                    const team = teams.find(t => t.id === teamId);
+                    return team ? (
+                      <Badge key={teamId} variant="outline" className="text-xs">
+                        {team.name}
+                      </Badge>
+                    ) : null;
+                  })
+                ) : (
+                  <span className="text-sm text-muted-foreground">Unassigned</span>
+                )}
+              </div>
             </div>
 
             {user.uid && (

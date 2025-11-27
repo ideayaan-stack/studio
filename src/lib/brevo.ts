@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import * as Brevo from '@getbrevo/brevo';
 
 interface SendEmailParams {
     to: string;
@@ -8,37 +8,29 @@ interface SendEmailParams {
 }
 
 export async function sendEmailViaBrevo({ to, name, subject, htmlContent }: SendEmailParams) {
-    const smtpUser = process.env.BREVO_SMTP_USER;
-    const smtpPass = process.env.BREVO_SMTP_KEY;
+    const apiKey = process.env.BREVO_SMTP_KEY; // Using the key from env, assuming it's an API key now if using SDK
     const senderEmail = process.env.NEXT_PUBLIC_SENDER_EMAIL || 'noreply@ideayaan.com';
     const senderName = process.env.NEXT_PUBLIC_SENDER_NAME || 'Ideayaan Studio';
 
-    if (!smtpUser || !smtpPass) {
-        throw new Error('Brevo SMTP credentials are not configured. Please check BREVO_SMTP_USER and BREVO_SMTP_KEY in .env.local');
+    if (!apiKey) {
+        throw new Error('Brevo API key is not configured. Please check BREVO_SMTP_KEY in .env.local');
     }
 
-    const transporter = nodemailer.createTransport({
-        host: 'smtp-relay.brevo.com',
-        port: 587,
-        secure: false, // true for 465, false for other ports
-        auth: {
-            user: smtpUser,
-            pass: smtpPass,
-        },
-    });
+    const apiInstance = new Brevo.TransactionalEmailsApi();
+    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, apiKey);
+
+    const sendSmtpEmail = new Brevo.SendSmtpEmail();
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = htmlContent;
+    sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+    sendSmtpEmail.to = [{ email: to, name: name }];
 
     try {
-        const info = await transporter.sendMail({
-            from: `"${senderName}" <${senderEmail}>`,
-            to: `"${name}" <${to}>`,
-            subject: subject,
-            html: htmlContent,
-        });
-
-        console.log('Message sent: %s', info.messageId);
-        return { success: true, messageId: info.messageId };
+        const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+        console.log('Message sent successfully. Message ID:', data.body.messageId);
+        return { success: true, messageId: data.body.messageId };
     } catch (error: any) {
-        console.error('Error sending email via Brevo:', error);
-        return { success: false, error: error.message };
+        console.error('Error sending email via Brevo SDK:', error);
+        return { success: false, error: error.body ? JSON.stringify(error.body) : error.message };
     }
 }

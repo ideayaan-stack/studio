@@ -495,9 +495,9 @@ export default function ChatPage() {
 
   return (
     <div className="h-full p-4 md:p-6 flex flex-col overflow-hidden">
-      <div className="flex flex-col md:grid md:grid-cols-[300px_1fr] h-full rounded-lg border shadow-sm overflow-hidden">
+      <div className="flex-1 flex flex-col md:grid md:grid-cols-[300px_1fr] min-h-0 rounded-lg border shadow-sm overflow-hidden bg-background">
         {/* Desktop: Always visible sidebar */}
-        <div className="hidden md:flex flex-col border-r">
+        <div className="hidden md:flex flex-col border-r h-full overflow-hidden">
           <ChatListContent />
         </div>
 

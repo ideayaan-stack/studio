@@ -10,13 +10,13 @@
   "scope": "/",
   "icons": [
     {
-      "src": "/icon.jpg",
+      "src": "/web-icon.jpg",
       "sizes": "192x192",
       "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-squircle.jpg",
+      "src": "/web-icon.jpg",
       "sizes": "512x512",
       "type": "image/jpeg",
       "purpose": "any maskable"
@@ -35,8 +35,10 @@
       "url": "/dashboard",
       "icons": [
         {
-          "src": "/icon.jpg",
-          "sizes": "192x192"
+          "src": "/web-icon.jpg",
+          "sizes": "192x192",
+          "type": "image/jpeg",
+          "purpose": "any maskable"
         }
       ]
     }

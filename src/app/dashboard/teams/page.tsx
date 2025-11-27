@@ -111,10 +111,14 @@ export default function TeamsPage() {
     if (!users || !teams) return [];
     const allTeams = canSeeAllTeams(userProfile) ? teams : (userIsHead ? teams : []);
     return users.map(user => {
-      const team = allTeams?.find(t => t.id === user.teamId);
+      // Map all teamIds to team names
+      const userTeamNames = user.teamIds && user.teamIds.length > 0
+        ? user.teamIds.map(tid => allTeams?.find(t => t.id === tid)?.name).filter(Boolean).join(', ')
+        : (allTeams?.find(t => t.id === user.teamId)?.name || 'Unassigned');
+
       return {
         ...user,
-        teamName: team?.name || 'Unassigned',
+        teamName: userTeamNames || 'Unassigned',
       };
     });
   }, [users, teams, userProfile, userIsHead]);
