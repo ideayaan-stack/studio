@@ -2,7 +2,8 @@ import {
   getWelcomeEmailHtml,
   getTaskAssignmentEmailHtml,
   getDailyReminderEmailHtml,
-  getFileUploadEmailHtml
+  getFileUploadEmailHtml,
+  getTaskCompletionEmailHtml
 } from './email-templates';
 import { sendEmailAction } from '@/actions/email-actions';
 
@@ -191,5 +192,27 @@ export async function sendTaskDeadlineReminderEmail(
     message: htmlContent,
     task_title: taskTitle,
     task_deadline: taskDeadline,
+  });
+}
+
+/**
+ * Send task completion email to Head
+ */
+export async function sendTaskCompletionEmail(
+  toEmail: string,
+  toName: string,
+  volunteerName: string,
+  taskTitle: string,
+  completionReport: string,
+  completedAt: string
+): Promise<{ success: boolean; error?: string }> {
+  const htmlContent = getTaskCompletionEmailHtml(toName, volunteerName, taskTitle, completionReport, completedAt);
+
+  return sendEmail({
+    to_email: toEmail,
+    to_name: toName,
+    subject: `Task Completed: ${taskTitle}`,
+    message: htmlContent,
+    task_title: taskTitle,
   });
 }

@@ -26,6 +26,7 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  authLoading: boolean;
   db: ReturnType<typeof initializeFirebase>['db'];
   storage: ReturnType<typeof initializeFirebase>['storage'];
   createUser: (email: string, password: string, displayName: string, role: Role, teamId?: string, teamIds?: string[]) => Promise<{ error?: string }>;
@@ -82,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     userProfile: userProfile || null,
     loading: loading || profileLoading,
+    authLoading: loading, // Expose raw auth loading state
     db,
     storage,
     createUser,

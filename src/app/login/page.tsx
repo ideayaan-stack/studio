@@ -19,7 +19,7 @@ import { FirebaseError } from "firebase/app";
 import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
-  const { signIn, user, loading } = useAuth();
+  const { signIn, user, loading, authLoading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,12 +28,12 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-        toast({
-            variant: "destructive",
-            title: "Missing Fields",
-            description: "Please enter both email and password.",
-        });
-        return;
+      toast({
+        variant: "destructive",
+        title: "Missing Fields",
+        description: "Please enter both email and password.",
+      });
+      return;
     }
     setIsLoading(true);
     try {
@@ -67,23 +67,24 @@ export default function LoginPage() {
       router.push('/dashboard');
     }
   }, [user, router]);
-  
+
   // This page should not be accessible if the user is already logged in and not in a loading state.
-  if (user && !loading) {
+  // Use authLoading to check if we know the user state, ignoring profile loading for now.
+  if (user && !authLoading) {
     // router.push is handled in useEffect
     return (
-        <div className="flex min-h-screen items-center justify-center">
-            <Loader2 className="animate-spin h-10 w-10 text-primary" />
-            <p className="ml-2">Redirecting to dashboard...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="animate-spin h-10 w-10 text-primary" />
+        <p className="ml-2">Redirecting to dashboard...</p>
+      </div>
     );
   }
-  
-  if (loading) {
+
+  if (authLoading) {
     return (
-        <div className="flex min-h-screen items-center justify-center">
-            <Loader2 className="animate-spin h-10 w-10 text-primary" />
-        </div>
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="animate-spin h-10 w-10 text-primary" />
+      </div>
     );
   }
 
@@ -103,10 +104,10 @@ export default function LoginPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input 
-              id="email" 
-              type="email" 
-              placeholder="m@example.com" 
+            <Input
+              id="email"
+              type="email"
+              placeholder="m@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
@@ -122,8 +123,8 @@ export default function LoginPage() {
                 Forgot your password?
               </Link>
             </div>
-            <Input 
-              id="password" 
+            <Input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -131,9 +132,9 @@ export default function LoginPage() {
               onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleLogin()}
             />
           </div>
-            <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
-              {isLoading ? <Loader2 className="animate-spin" /> : 'Sign In'}
-            </Button>
+          <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
+            {isLoading ? <Loader2 className="animate-spin" /> : 'Sign In'}
+          </Button>
           <Separator className="my-4" />
           <div className="text-center text-sm text-muted-foreground">
             Ideayaan is an internal tool. Please contact a core team member if you have trouble logging in.

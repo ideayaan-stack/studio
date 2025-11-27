@@ -38,7 +38,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
  */
 export async function showNotification(options: NotificationOptions): Promise<void> {
   const hasPermission = await requestNotificationPermission();
-  
+
   if (!hasPermission) {
     console.warn('Notification permission not granted');
     return;
@@ -47,8 +47,8 @@ export async function showNotification(options: NotificationOptions): Promise<vo
   try {
     const notification = new Notification(options.title, {
       body: options.body,
-      icon: options.icon || '/icon-192x192.png',
-      badge: options.badge || '/icon-192x192.png',
+      icon: options.icon || '/web-icon.jpg',
+      badge: options.badge || '/web-icon.jpg',
       tag: options.tag,
       requireInteraction: options.requireInteraction || false,
       silent: options.silent || false,
@@ -79,12 +79,12 @@ export async function notifyTaskAssignment(taskTitle: string, assignerName: stri
  * Show task deadline reminder
  */
 export async function notifyTaskDeadline(taskTitle: string, hoursRemaining: number): Promise<void> {
-  const timeText = hoursRemaining < 1 
-    ? 'less than an hour' 
-    : hoursRemaining === 1 
-    ? '1 hour' 
-    : `${hoursRemaining} hours`;
-  
+  const timeText = hoursRemaining < 1
+    ? 'less than an hour'
+    : hoursRemaining === 1
+      ? '1 hour'
+      : `${hoursRemaining} hours`;
+
   await showNotification({
     title: 'Task Deadline Approaching',
     body: `"${taskTitle}" is due in ${timeText}`,
