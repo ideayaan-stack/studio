@@ -69,6 +69,9 @@ export default function MeetingsPage() {
     if (canSeeAllTeams(userProfile)) {
       return collection(db, 'teams');
     }
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'teams'), where('__name__', 'in', userProfile.teamIds));
+    }
     if (userProfile?.teamId) {
       return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
     }
@@ -83,10 +86,25 @@ export default function MeetingsPage() {
     if (canSeeAllTeams(userProfile)) {
       return query(collection(db, 'meetings'), orderBy('date', 'asc'));
     }
+
+    // For team members, fetch meetings for their team(s)
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      // Note: Firestore 'in' query supports up to 10 values.
+      // We'll query for meetings where teamId is in the user's teamIds.
+      // We are EXCLUDING 'null' (all-team meetings) for now to be safe with permissions,
+      // unless we confirm the rule allows 'null' AND the query works.
+      // Given the user report, let's stick to strict teamIds first.
+      return query(
+        collection(db, 'meetings'),
+        where('teamId', 'in', userProfile.teamIds),
+        orderBy('date', 'asc')
+      );
+    }
+
     if (userProfile?.teamId) {
       return query(
         collection(db, 'meetings'),
-        where('teamId', 'in', [userProfile.teamId, null]), // Include team meetings and all-team meetings
+        where('teamId', '==', userProfile.teamId),
         orderBy('date', 'asc')
       );
     }

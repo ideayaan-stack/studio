@@ -107,10 +107,21 @@ export default function ChatPage() {
   const { data: teams, loading: teamsLoading } = useCollection<Team>(teamsQuery);
 
   // Get all users for message display
+  // Get all users for message display
   const usersQuery = useMemo(() => {
     if (!db) return null;
-    return collection(db, 'users');
-  }, [db]);
+    if (canChatInAllTeams(userProfile)) {
+      return collection(db, 'users');
+    }
+    // For Heads/Volunteers, only fetch users in their teams
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'users'), where('teamId', 'in', userProfile.teamIds));
+    }
+    if (userProfile?.teamId) {
+      return query(collection(db, 'users'), where('teamId', '==', userProfile.teamId));
+    }
+    return null;
+  }, [db, userProfile]);
   const { data: allUsers } = useCollection<UserProfile>(usersQuery);
 
   // Create chat list with community chat + team chats

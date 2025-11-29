@@ -61,6 +61,9 @@ export default function FilesPage() {
     if (canSeeAllTeams(userProfile)) {
       return collection(db, 'teams');
     }
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'teams'), where('__name__', 'in', userProfile.teamIds));
+    }
     if (userProfile?.teamId) {
       return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
     }
@@ -75,9 +78,12 @@ export default function FilesPage() {
     if (canSeeAllFiles(userProfile)) {
       return collection(db, 'files');
     }
-    // Team members see files associated with their team or shared with all teams
+    // Team members see files associated with their team(s)
+    if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'files'), where('teamId', 'in', userProfile.teamIds));
+    }
     if (userProfile?.teamId) {
-      return query(collection(db, 'files'), where('teamId', 'in', [userProfile.teamId, 'all']));
+      return query(collection(db, 'files'), where('teamId', '==', userProfile.teamId));
     }
     // Return null if no specific query can be formed (e.g., unassigned user)
     return null;
