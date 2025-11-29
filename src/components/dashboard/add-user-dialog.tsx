@@ -137,7 +137,8 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
           data.email,
           data.displayName,
           data.role,
-          teamNames
+          teamNames,
+          data.password
         );
       } catch (emailError) {
         console.error('Failed to send welcome email:', emailError);

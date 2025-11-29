@@ -31,12 +31,21 @@ service cloud.firestore {
     match /users/{userId} {
       // Anyone can create their own user profile document.
       allow create: if isSignedIn();
-      // Users can only read their own profile. Core/Semi-core can read any profile.
-      allow read: if isSignedIn() && (isUser(userId) || isRole('Core') || isRole('Semi-core'));
       // Users can update their own profile. Core team can update any profile (e.g., to change role).
       allow update: if isSignedIn() && (isUser(userId) || isRole('Core'));
       // Only Core team can delete users.
       allow delete: if isSignedIn() && isRole('Core');
+      
+      // Read access:
+      // 1. Users can read their own profile
+      // 2. Core/Semi-core can read all profiles
+      // 3. Heads and Volunteers can read profiles of users in their team(s)
+      allow read: if isSignedIn() && (
+        isUser(userId) || 
+        isRole('Core') || 
+        isRole('Semi-core') || 
+        ((isRole('Head') || isRole('Volunteer')) && isTeamMember(resource.data.teamId))
+      );
     }
 
     // TEAMS
@@ -53,11 +62,13 @@ service cloud.firestore {
       // 1. They are Core/Semi-core
       // 2. They are the assignee
       // 3. The task is unassigned (Team Task) AND they are in the team
+      // 4. They are the Head of the team
       allow read: if isSignedIn() && (
         isRole('Core') ||
         isRole('Semi-core') ||
         isUser(resource.data.assignee.uid) ||
-        (resource.data.assignee.uid == null && isTeamMember(resource.data.teamId))
+        (resource.data.assignee.uid == null && isTeamMember(resource.data.teamId)) ||
+        (isRole('Head') && isTeamMember(resource.data.teamId))
       );
 
       // Creating tasks: Core, Semi-core, and Heads can create.

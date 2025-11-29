@@ -40,7 +40,7 @@ export function SidebarNav() {
       if (['/dashboard', '/dashboard/tasks', '/dashboard/files', '/dashboard/chat'].includes(item.href)) {
         return true;
       }
-      // Teams page: Only Core, Semi-core, and Head can access
+      // Teams page: Core, Semi-core, Head, and Volunteer can access
       if (item.href === '/dashboard/teams') {
         return canAccessTeamsPage(userProfile);
       }

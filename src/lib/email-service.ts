@@ -100,9 +100,10 @@ export async function sendWelcomeEmail(
   toEmail: string,
   toName: string,
   role: string,
-  teamName: string
+  teamName: string,
+  password?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const htmlContent = getWelcomeEmailHtml(toName, toEmail, role, teamName);
+  const htmlContent = getWelcomeEmailHtml(toName, toEmail, role, teamName, password);
 
   return sendEmail({
     to_email: toEmail,

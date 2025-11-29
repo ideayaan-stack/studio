@@ -120,7 +120,7 @@ export function canUploadToAnyTeam(userProfile: UserProfile | null | undefined):
  * Volunteers cannot access
  */
 export function canAccessTeamsPage(userProfile: UserProfile | null | undefined): boolean {
-  return isCore(userProfile) || isSemiCore(userProfile) || isHead(userProfile);
+  return isCore(userProfile) || isSemiCore(userProfile) || isHead(userProfile) || isVolunteer(userProfile);
 }
 
 /**

@@ -59,7 +59,9 @@ import {
   canAccessTeamsPage,
   canSeeAllTeams,
   isHead,
+  isVolunteer,
 } from '@/lib/permissions';
+import { ViewTeamDialog } from '@/components/dashboard/view-team-dialog';
 
 export default function TeamsPage() {
   const { db, userProfile, loading: authLoading } = useAuth();
@@ -71,6 +73,7 @@ export default function TeamsPage() {
   const [isChangeRoleDialogOpen, setChangeRoleDialogOpen] = useState(false);
   const [isChangeTeamDialogOpen, setChangeTeamDialogOpen] = useState(false);
   const [isViewUserDialogOpen, setViewUserDialogOpen] = useState(false);
+  const [isViewTeamDialogOpen, setViewTeamDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [deleteUserDialog, setDeleteUserDialog] = useState<{ open: boolean; user: UserProfile | null; confirmText: string }>({ open: false, user: null, confirmText: '' });
@@ -80,22 +83,39 @@ export default function TeamsPage() {
   const [teamFilter, setTeamFilter] = useState<string>('all');
 
   const userIsHead = isHead(userProfile);
+  const userIsVolunteer = isVolunteer(userProfile);
+  const canViewOwnTeam = userIsHead || userIsVolunteer;
 
-  // Core and Semi-core see all teams. Heads see only their team.
+  // Core and Semi-core see all teams. Heads and Volunteers see only their team(s).
   const teamsQuery = useMemo(() => {
     if (!db) return null;
     if (canSeeAllTeams(userProfile)) return collection(db, 'teams');
-    if (userIsHead && userProfile?.teamId) return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
+    if (canViewOwnTeam) {
+      if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+        return query(collection(db, 'teams'), where('__name__', 'in', userProfile.teamIds));
+      }
+      if (userProfile?.teamId) {
+        return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
+      }
+    }
     return null;
-  }, [db, userProfile, userIsHead]);
+  }, [db, userProfile, canViewOwnTeam]);
 
-  // Core and Semi-core see all users. Heads see users in their team.
+  // Core and Semi-core see all users. Heads and Volunteers see users in their team(s).
   const usersQuery = useMemo(() => {
     if (!db) return null;
     if (canSeeAllTeams(userProfile)) return collection(db, 'users');
-    if (userIsHead && userProfile?.teamId) return query(collection(db, 'users'), where('teamId', '==', userProfile.teamId));
+    if (canViewOwnTeam) {
+      if (userProfile?.teamIds && userProfile.teamIds.length > 0) {
+        // Fetch users whose primary team is in the user's teams
+        return query(collection(db, 'users'), where('teamId', 'in', userProfile.teamIds));
+      }
+      if (userProfile?.teamId) {
+        return query(collection(db, 'users'), where('teamId', '==', userProfile.teamId));
+      }
+    }
     return null;
-  }, [db, userProfile, userIsHead]);
+  }, [db, userProfile, canViewOwnTeam]);
 
 
   const { data: teams, loading: teamsLoading } = useCollection<Team>(teamsQuery);
@@ -109,7 +129,7 @@ export default function TeamsPage() {
 
   const usersWithTeamInfo = useMemo(() => {
     if (!users || !teams) return [];
-    const allTeams = canSeeAllTeams(userProfile) ? teams : (userIsHead ? teams : []);
+    const allTeams = canSeeAllTeams(userProfile) ? teams : (canViewOwnTeam ? teams : []);
     return users.map(user => {
       // Map all teamIds to team names
       const userTeamNames = user.teamIds && user.teamIds.length > 0
@@ -121,7 +141,7 @@ export default function TeamsPage() {
         teamName: userTeamNames || 'Unassigned',
       };
     });
-  }, [users, teams, userProfile, userIsHead]);
+  }, [users, teams, userProfile, userIsHead, canViewOwnTeam]);
 
   // Filter users based on search and filters
   const filteredUsers = useMemo(() => {
@@ -286,7 +306,7 @@ export default function TeamsPage() {
                     <TableHead className="hidden md:table-cell">Description</TableHead>
                     <TableHead className="hidden sm:table-cell">Team Head</TableHead>
                     <TableHead className="text-center">Members</TableHead>
-                    {(canManage || userIsHead) && <TableHead className="text-right">Actions</TableHead>}
+                    {(canManage || canViewOwnTeam) && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -316,7 +336,7 @@ export default function TeamsPage() {
                           <TableCell className='text-muted-foreground max-w-sm truncate hidden md:table-cell'>{team.description}</TableCell>
                           <TableCell className='text-muted-foreground hidden sm:table-cell'>{headUser?.displayName || 'N/A'}</TableCell>
                           <TableCell className="text-center">{memberCount}</TableCell>
-                          {(canManage || userIsHead) && (
+                          {(canManage || canViewOwnTeam) && (
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -328,7 +348,7 @@ export default function TeamsPage() {
                                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                   <DropdownMenuItem onSelect={() => {
                                     setSelectedTeam(team);
-                                    // View team details - could add a view dialog later
+                                    setViewTeamDialogOpen(true);
                                   }}>
                                     <Eye className="h-4 w-4 mr-2" />
                                     View Details
@@ -432,7 +452,7 @@ export default function TeamsPage() {
                     <TableHead className="hidden md:table-cell">Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead className="hidden sm:table-cell">Team</TableHead>
-                    {(canManagePerms || userIsHead) && <TableHead className="text-right">Actions</TableHead>}
+                    {(canManagePerms || canViewOwnTeam) && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -461,7 +481,7 @@ export default function TeamsPage() {
                         <TableCell className='text-muted-foreground hidden md:table-cell'>{user.email}</TableCell>
                         <TableCell><Badge variant={user.role === 'Core' ? 'default' : 'secondary'}>{user.role}</Badge></TableCell>
                         <TableCell className={cn('font-medium hidden sm:table-cell', user.teamName === 'Unassigned' && 'text-destructive')}>{user.teamName}</TableCell>
-                        {(canManagePerms || (userIsHead && user.uid !== userProfile?.uid)) && (
+                        {(canManagePerms || (canViewOwnTeam && user.uid !== userProfile?.uid)) && (
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -602,6 +622,15 @@ export default function TeamsPage() {
         }}
         user={selectedUser}
         teams={teams || []}
+      />
+      <ViewTeamDialog
+        isOpen={isViewTeamDialogOpen}
+        setIsOpen={(open) => {
+          setViewTeamDialogOpen(open);
+          if (!open) setSelectedTeam(null);
+        }}
+        team={selectedTeam}
+        users={users || []}
       />
       <AlertDialog open={deleteUserDialog.open} onOpenChange={(open) => setDeleteUserDialog({ open, user: null, confirmText: '' })}>
         <AlertDialogContent>

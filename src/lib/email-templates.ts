@@ -32,7 +32,7 @@ const commonFooter = `
   </div>
 `;
 
-export function getWelcomeEmailHtml(toName: string, toEmail: string, role: string, teamName: string) {
+export function getWelcomeEmailHtml(toName: string, toEmail: string, role: string, teamName: string, password?: string) {
   return `
 <!DOCTYPE html>
 <html>
@@ -53,7 +53,14 @@ export function getWelcomeEmailHtml(toName: string, toEmail: string, role: strin
           <span style="${styles.value}">${role}</span>
           
           <span style="${styles.label}">Team</span>
-          <span style="${styles.value}" style="margin-bottom: 0;">${teamName}</span>
+          <span style="${styles.value}">${teamName}</span>
+
+          ${password ? `
+          <div style="${styles.divider}; margin: 15px 0;"></div>
+          <span style="${styles.label}">Temporary Password</span>
+          <span style="${styles.value}; font-family: monospace; font-size: 18px; background: #e4e4e7; padding: 4px 8px; border-radius: 4px; display: inline-block;">${password}</span>
+          <p style="${styles.paragraph}; font-size: 13px; margin-top: 8px;">Please change your password after your first login.</p>
+          ` : ''}
         </div>
         
         <div style="${styles.buttonContainer}">

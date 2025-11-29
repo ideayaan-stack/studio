@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -54,6 +54,12 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
   const [isMultiSelectOpen, setIsMultiSelectOpen] = useState(false);
   const [multiSelectMode, setMultiSelectMode] = useState<'assignee' | null>(null);
 
+  const [minDate, setMinDate] = useState('');
+
+  useEffect(() => {
+    setMinDate(new Date().toISOString().slice(0, 16));
+  }, []);
+
   const canAssignToAnyTeam = canSeeAllTeams(userProfile);
   const availableTeams = canAssignToAnyTeam ? teams : teams.filter(t => t.id === userProfile?.teamId);
 
@@ -75,7 +81,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
 
   const selectedTeamId = watch('teamId');
   const teamUsers = selectedTeamId
-    ? users.filter(u => u.teamId === selectedTeamId)
+    ? users.filter(u => u.teamId === selectedTeamId || (u.teamIds && u.teamIds.includes(selectedTeamId)))
     : [];
 
   const onSubmit: SubmitHandler<TaskInput> = async (data) => {
@@ -275,7 +281,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {canAssignToAnyTeam && selectedTeamId && teamUsers.length > 0 && (
+                  {selectedTeamId && teamUsers.length > 0 && (
                     <>
                       <SelectItem value="__all__">
                         <div className="flex items-center gap-2">
@@ -300,22 +306,17 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
               </Select>
             </div>
             {errors.assigneeId && <p className="text-xs text-destructive">{errors.assigneeId.message}</p>}
-            {selectedTeamId && teamUsers.length === 0 && (
-              <p className="text-xs text-muted-foreground">No members found in this team.</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="deadline">Deadline (Optional)</Label>
-            <Input
-              id="deadline"
-              type="datetime-local"
-              {...register('deadline')}
-              min={new Date().toISOString().slice(0, 16)}
-              placeholder="Leave empty for default (7 days from now)"
-            />
-            {errors.deadline && <p className="text-xs text-destructive">{errors.deadline.message}</p>}
-            <p className="text-xs text-muted-foreground">If not specified, deadline will be set to 7 days from now.</p>
+            <div className="space-y-2">
+              <Label htmlFor="deadline">Deadline</Label>
+              <Input
+                id="deadline"
+                type="datetime-local"
+                min={minDate}
+                {...register('deadline')}
+              />
+              {errors.deadline && <p className="text-xs text-destructive">{errors.deadline.message}</p>}
+              <p className="text-xs text-muted-foreground">If not specified, deadline will be set to 7 days from now.</p>
+            </div>
           </div>
 
           <div className="space-y-2">

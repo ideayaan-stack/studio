@@ -47,8 +47,8 @@ export async function showNotification(options: NotificationOptions): Promise<vo
   try {
     const notification = new Notification(options.title, {
       body: options.body,
-      icon: options.icon || '/web-icon.jpg',
-      badge: options.badge || '/web-icon.jpg',
+      icon: options.icon || '/android-chrome-192x192.png',
+      badge: options.badge || '/android-chrome-192x192.png',
       tag: options.tag,
       requireInteraction: options.requireInteraction || false,
       silent: options.silent || false,

@@ -16,27 +16,43 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ViewUserDialog } from '@/components/dashboard/view-user-dialog';
 import { useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import type { Team } from '@/lib/types';
 import { getImageUrl } from '@/lib/image-storage';
+import { useMemo } from 'react';
+import { canSeeAllTeams } from '@/lib/permissions';
 
 export function UserNav() {
   const { user, userProfile, signOut, loading, db } = useAuth();
   const router = useRouter();
   const [isViewProfileOpen, setIsViewProfileOpen] = useState(false);
-  
+
   // Get teams for view dialog
-  const teamsQuery = db ? collection(db, 'teams') : null;
+  const teamsQuery = useMemo(() => {
+    if (!db || !userProfile) return null;
+    if (canSeeAllTeams(userProfile)) return collection(db, 'teams');
+
+    if (userProfile.teamIds && userProfile.teamIds.length > 0) {
+      return query(collection(db, 'teams'), where('__name__', 'in', userProfile.teamIds));
+    }
+
+    if (userProfile.teamId) {
+      return query(collection(db, 'teams'), where('__name__', '==', userProfile.teamId));
+    }
+
+    return null;
+  }, [db, userProfile]);
+
   const { data: teams } = useCollection<Team>(teamsQuery);
-  
+
   if (loading && !user) {
     return (
-        <div className="flex items-center gap-2">
-            <Skeleton className="h-9 w-9 rounded-full" />
-            <div className="space-y-1">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-3 w-28" />
-            </div>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-9 w-9 rounded-full" />
+        <div className="space-y-1">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-3 w-28" />
+        </div>
       </div>
     )
   }
@@ -71,11 +87,11 @@ export function UserNav() {
               <p className="text-xs leading-none text-muted-foreground">
                 {user.email}
               </p>
-               {userProfile?.role && (
+              {userProfile?.role && (
                 <p className="text-xs leading-none text-muted-foreground pt-1">
                   Role: <span className="font-semibold">{userProfile.role}</span>
                 </p>
-               )}
+              )}
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -89,7 +105,7 @@ export function UserNav() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={signOut}>
-              Log out
+            Log out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

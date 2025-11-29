@@ -187,10 +187,8 @@ export default function ChatPage() {
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current && scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
+      // If using native div scrolling (which we are for the main chat area)
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
 
