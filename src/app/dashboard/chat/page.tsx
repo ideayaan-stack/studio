@@ -184,13 +184,30 @@ export default function ChatPage() {
     return [...rawMessages].reverse();
   }, [rawMessages]);
 
-  // Scroll to bottom when new messages arrive
+  // Smart scroll to bottom
   useEffect(() => {
-    if (messagesEndRef.current && scrollAreaRef.current) {
-      // If using native div scrolling (which we are for the main chat area)
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    const scrollContainer = scrollAreaRef.current;
+    if (!scrollContainer || !messages || messages.length === 0) return;
+
+    // Logic:
+    // 1. If it's the very first load (or close to it), scroll to bottom.
+    // 2. If the user sent the last message, scroll to bottom.
+    // 3. If the user is already at the bottom (within threshold), scroll to bottom.
+    // 4. Otherwise, don't scroll (user is reading history).
+
+    const lastMessage = messages[messages.length - 1];
+    const isOwnMessage = lastMessage.senderId === userProfile?.uid;
+
+    // Check if near bottom (threshold 150px)
+    const isNearBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 150;
+
+    if (isOwnMessage || isNearBottom) {
+      // Use setTimeout to allow DOM to update
+      setTimeout(() => {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }, 100);
     }
-  }, [messages]);
+  }, [messages, userProfile?.uid]);
 
   const selectedChat = chatList.find(chat => chat.id === selectedTeamId);
 
@@ -507,7 +524,7 @@ export default function ChatPage() {
             </SheetContent>
           </Sheet>
         )}
-        <div className="flex flex-col h-full flex-1 min-w-0">
+        <div className="flex flex-col h-full flex-1 min-w-0 min-h-0">
           {selectedChat ? (
             <>
               <div className="p-4 border-b flex items-center gap-4">

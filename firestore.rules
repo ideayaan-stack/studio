@@ -67,8 +67,7 @@ service cloud.firestore {
         isRole('Core') ||
         isRole('Semi-core') ||
         isUser(resource.data.assignee.uid) ||
-        (resource.data.assignee.uid == null && isTeamMember(resource.data.teamId)) ||
-        (isRole('Head') && isTeamMember(resource.data.teamId))
+        isTeamMember(resource.data.teamId)
       );
 
       // Creating tasks: Core, Semi-core, and Heads can create.
