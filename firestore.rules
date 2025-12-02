@@ -40,12 +40,8 @@ service cloud.firestore {
       // 1. Users can read their own profile
       // 2. Core/Semi-core can read all profiles
       // 3. Heads and Volunteers can read profiles of users in their team(s)
-      allow read: if isSignedIn() && (
-        isUser(userId) || 
-        isRole('Core') || 
-        isRole('Semi-core') || 
-        ((isRole('Head') || isRole('Volunteer')) && isTeamMember(resource.data.teamId))
-      );
+      // UPDATE: Allow all authenticated users to read all profiles for Directory
+      allow read: if isSignedIn();
     }
 
     // TEAMS
@@ -128,12 +124,8 @@ service cloud.firestore {
     // MEETINGS
     match /meetings/{meetingId} {
       // Users can read meetings for their team or all meetings if Core/Semi-core
-      allow read: if isSignedIn() && (
-        isRole('Core') || 
-        isRole('Semi-core') || 
-        resource.data.teamId == null ||
-        isTeamMember(resource.data.teamId)
-      );
+      // UPDATE: Allow all authenticated users to read all meetings for Calendar
+      allow read: if isSignedIn();
       // Only Core/Semi-core can create meetings
       allow create: if isSignedIn() && (isRole('Core') || isRole('Semi-core'));
       // Only Core/Semi-core can update meetings

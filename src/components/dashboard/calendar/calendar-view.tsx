@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useCollection, useAuth } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import type { Task } from '@/lib/types';
+import type { Task, Meeting, Team } from '@/lib/types';
 
 type ViewType = 'month' | 'week' | 'day' | 'agenda';
 
@@ -33,27 +33,69 @@ export function CalendarView() {
     const [view, setView] = useState<ViewType>('month');
     const { db, userProfile } = useAuth();
 
-    // Fetch tasks
+    // Fetch Teams to map names
+    const teamsQuery = useMemo(() => {
+        if (!db) return null;
+        return collection(db, 'teams');
+    }, [db]);
+    const { data: teams } = useCollection<Team>(teamsQuery);
+
+    const getTeamName = (teamId?: string) => {
+        if (!teamId || !teams) return '';
+        const team = teams.find(t => t.id === teamId);
+        return team ? team.name : '';
+    };
+
+    // Fetch tasks (Private to assignee)
     const tasksQuery = useMemo(() => {
         if (!db || !userProfile) return null;
-        // Simple query: fetch all tasks for now, filter client-side for date
-        // In a real app with many tasks, you'd want to query by date range
-        return collection(db, 'tasks');
+        // User sees only their assigned tasks
+        return query(collection(db, 'tasks'), where('assignee.uid', '==', userProfile.uid));
     }, [db, userProfile]);
 
     const { data: tasks } = useCollection<Task>(tasksQuery);
 
-    // Filter tasks for the current view
+    // Fetch meetings (Public/All)
+    const meetingsQuery = useMemo(() => {
+        if (!db) return null;
+        return collection(db, 'meetings');
+    }, [db]);
+
+    const { data: meetings } = useCollection<Meeting>(meetingsQuery);
+
+    // Combine and filter events
     const events = useMemo(() => {
-        if (!tasks) return [];
-        return tasks.map(task => ({
-            id: task.id,
-            title: task.title,
-            date: task.deadline?.toDate() || new Date(), // Fallback to now if no deadline
-            type: 'task',
-            status: task.status
-        }));
-    }, [tasks]);
+        const allEvents: any[] = [];
+
+        if (tasks) {
+            tasks.forEach(task => {
+                allEvents.push({
+                    id: task.id,
+                    title: task.title,
+                    date: task.deadline?.toDate() || new Date(),
+                    type: 'task',
+                    status: task.status,
+                    teamId: task.teamId
+                });
+            });
+        }
+
+        if (meetings) {
+            meetings.forEach(meeting => {
+                allEvents.push({
+                    id: meeting.id,
+                    title: meeting.title,
+                    date: meeting.date?.toDate() || new Date(),
+                    type: 'meeting',
+                    status: 'Scheduled',
+                    teamId: meeting.teamId,
+                    time: meeting.time
+                });
+            });
+        }
+
+        return allEvents;
+    }, [tasks, meetings]);
 
     const navigate = (direction: 'prev' | 'next') => {
         if (view === 'month') {
@@ -66,6 +108,35 @@ export function CalendarView() {
     };
 
     const goToToday = () => setCurrentDate(new Date());
+
+    const renderEvent = (event: any, isCompact = false) => {
+        const teamName = getTeamName(event.teamId);
+        return (
+            <div
+                key={event.id}
+                className={cn(
+                    "text-xs rounded border shadow-sm cursor-pointer hover:opacity-80 transition-all",
+                    isCompact ? "px-1 py-0.5 truncate" : "p-2",
+                    event.type === 'task' ? (
+                        event.status === 'Completed' ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 line-through" :
+                            event.status === 'In Progress' ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" :
+                                "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800"
+                    ) : (
+                        "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
+                    )
+                )}
+                title={`${event.title} ${teamName ? `(${teamName})` : ''}`}
+            >
+                <div className="flex items-center justify-between gap-1">
+                    <span className="truncate font-medium">{event.title}</span>
+                    {event.type === 'meeting' && <span className="text-[10px] opacity-80">{event.time}</span>}
+                </div>
+                {!isCompact && teamName && (
+                    <div className="text-[10px] opacity-70 mt-0.5 truncate">{teamName}</div>
+                )}
+            </div>
+        );
+    };
 
     const renderMonthView = () => {
         const monthStart = startOfMonth(currentDate);
@@ -87,7 +158,7 @@ export function CalendarView() {
 
         return (
             <div className="flex flex-col h-full">
-                <div className="grid grid-cols-7 border-b">
+                <div className="grid grid-cols-7 border-b bg-muted/5">
                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                         <div key={day} className="p-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             {day}
@@ -103,34 +174,21 @@ export function CalendarView() {
                                     <div
                                         key={day.toString()}
                                         className={cn(
-                                            "min-h-[80px] p-2 border-r last:border-r-0 flex flex-col gap-1 transition-colors hover:bg-muted/5",
+                                            "min-h-[80px] p-1 border-r last:border-r-0 flex flex-col gap-1 transition-colors hover:bg-muted/5",
                                             !isSameMonth(day, monthStart) && "bg-muted/10 text-muted-foreground",
                                             isToday(day) && "bg-primary/5"
                                         )}
                                     >
-                                        <div className="flex items-center justify-between">
+                                        <div className="flex items-center justify-between px-1">
                                             <span className={cn(
-                                                "text-sm font-medium h-6 w-6 flex items-center justify-center rounded-full",
+                                                "text-xs font-medium h-5 w-5 flex items-center justify-center rounded-full",
                                                 isToday(day) && "bg-primary text-primary-foreground"
                                             )}>
                                                 {format(day, 'd')}
                                             </span>
                                         </div>
                                         <div className="flex-1 flex flex-col gap-1 overflow-y-auto max-h-[100px] no-scrollbar">
-                                            {dayEvents.map(event => (
-                                                <div
-                                                    key={event.id}
-                                                    className={cn(
-                                                        "text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80",
-                                                        event.status === 'Completed' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 line-through" :
-                                                            event.status === 'In Progress' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
-                                                                "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                                                    )}
-                                                    title={event.title}
-                                                >
-                                                    {event.title}
-                                                </div>
-                                            ))}
+                                            {dayEvents.map(event => renderEvent(event, true))}
                                         </div>
                                     </div>
                                 );
@@ -149,7 +207,7 @@ export function CalendarView() {
 
         return (
             <div className="flex flex-col h-full overflow-hidden">
-                <div className="grid grid-cols-7 border-b">
+                <div className="grid grid-cols-7 border-b bg-muted/5">
                     {days.map(day => (
                         <div key={day.toString()} className={cn(
                             "p-3 text-center border-r last:border-r-0 flex flex-col gap-1",
@@ -174,20 +232,7 @@ export function CalendarView() {
                                 isToday(day) && "bg-primary/5"
                             )}>
                                 <div className="flex flex-col gap-2">
-                                    {dayEvents.map(event => (
-                                        <div
-                                            key={event.id}
-                                            className={cn(
-                                                "text-xs p-2 rounded border shadow-sm cursor-pointer hover:shadow-md transition-all",
-                                                event.status === 'Completed' ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400" :
-                                                    event.status === 'In Progress' ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400" :
-                                                        "bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400"
-                                            )}
-                                        >
-                                            <div className="font-medium truncate">{event.title}</div>
-                                            <div className="text-[10px] opacity-70 mt-1">{format(event.date, 'h:mm a')}</div>
-                                        </div>
-                                    ))}
+                                    {dayEvents.map(event => renderEvent(event))}
                                 </div>
                             </div>
                         );
@@ -221,17 +266,31 @@ export function CalendarView() {
                                     key={event.id}
                                     className={cn(
                                         "flex items-start gap-4 p-4 rounded-lg border shadow-sm",
-                                        event.status === 'Completed' ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800" :
-                                            event.status === 'In Progress' ? "bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800" :
-                                                "bg-orange-50/50 border-orange-200 dark:bg-orange-900/10 dark:border-orange-800"
+                                        event.type === 'task' ? (
+                                            event.status === 'Completed' ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800" :
+                                                event.status === 'In Progress' ? "bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800" :
+                                                    "bg-orange-50/50 border-orange-200 dark:bg-orange-900/10 dark:border-orange-800"
+                                        ) : (
+                                            "bg-purple-50/50 border-purple-200 dark:bg-purple-900/10 dark:border-purple-800"
+                                        )
                                     )}
                                 >
                                     <div className="flex-1">
-                                        <h3 className="font-semibold text-lg">{event.title}</h3>
-                                        <p className="text-sm text-muted-foreground mt-1">Due: {format(event.date, 'h:mm a')}</p>
-                                        <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border bg-background">
-                                            {event.status}
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="font-semibold text-lg">{event.title}</h3>
+                                            <span className="text-xs font-medium px-2 py-1 rounded-full bg-background border">
+                                                {getTeamName(event.teamId)}
+                                            </span>
                                         </div>
+                                        <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                                            <span>{format(event.date, 'h:mm a')}</span>
+                                            {event.type === 'meeting' && <span>• Meeting</span>}
+                                        </div>
+                                        {event.type === 'task' && (
+                                            <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border bg-background">
+                                                {event.status}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -248,7 +307,6 @@ export function CalendarView() {
     };
 
     const renderAgendaView = () => {
-        // Group events by date
         const sortedEvents = [...events].sort((a, b) => a.date.getTime() - b.date.getTime());
         const groupedEvents: { [key: string]: typeof events } = {};
 
@@ -288,18 +346,24 @@ export function CalendarView() {
                                         >
                                             <div className={cn(
                                                 "w-1.5 self-stretch rounded-full",
-                                                event.status === 'Completed' ? "bg-green-500" :
-                                                    event.status === 'In Progress' ? "bg-blue-500" :
-                                                        "bg-orange-500"
+                                                event.type === 'meeting' ? "bg-purple-500" :
+                                                    event.status === 'Completed' ? "bg-green-500" :
+                                                        event.status === 'In Progress' ? "bg-blue-500" :
+                                                            "bg-orange-500"
                                             )} />
                                             <div className="flex-1 min-w-0">
-                                                <h4 className={cn("font-medium truncate", event.status === 'Completed' && "line-through")}>
-                                                    {event.title}
-                                                </h4>
-                                                <p className="text-xs text-muted-foreground">{format(event.date, 'h:mm a')}</p>
-                                            </div>
-                                            <div className="text-xs font-medium px-2 py-1 rounded-full bg-muted">
-                                                {event.status}
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className={cn("font-medium truncate", event.status === 'Completed' && "line-through")}>
+                                                        {event.title}
+                                                    </h4>
+                                                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                                        {getTeamName(event.teamId)}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {format(event.date, 'h:mm a')}
+                                                    {event.type === 'meeting' && " • Meeting"}
+                                                </p>
                                             </div>
                                         </div>
                                     ))}
@@ -353,7 +417,7 @@ export function CalendarView() {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-y-auto min-h-0">
                 {view === 'month' && renderMonthView()}
                 {view === 'week' && renderWeekView()}
                 {view === 'day' && renderDayView()}

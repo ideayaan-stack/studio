@@ -7,13 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, LayoutGrid, List as ListIcon, Phone, Mail, Copy } from 'lucide-react';
+import { Search, LayoutGrid, List as ListIcon, Phone, Mail, Copy, AlertCircle } from 'lucide-react';
 import { canSeeAllTeams } from '@/lib/permissions';
 import type { UserProfile, Team } from '@/lib/types';
 import { getImageUrl } from '@/lib/image-storage';
 import { cn } from '@/lib/utils';
 import { AvatarWithRing } from '@/components/dashboard/avatar-with-ring';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function DirectoryPage() {
     const { db, userProfile } = useAuth();
@@ -35,7 +36,7 @@ export default function DirectoryPage() {
         return collection(db, 'users');
     }, [db]);
 
-    const { data: users, loading } = useCollection<UserProfile>(usersQuery);
+    const { data: users, loading, error } = useCollection<UserProfile>(usersQuery);
 
     // Filter users
     const filteredUsers = useMemo(() => {
@@ -67,6 +68,23 @@ export default function DirectoryPage() {
             description: `${label} copied to clipboard.`,
         });
     };
+
+    if (error) {
+        return (
+            <div className="h-full flex flex-col p-4 md:p-6 space-y-6">
+                <h1 className="text-2xl font-headline font-bold">Directory</h1>
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>
+                        Failed to load directory. Please try again later or contact support.
+                        <br />
+                        <span className="text-xs opacity-70">{error.message}</span>
+                    </AlertDescription>
+                </Alert>
+            </div>
+        );
+    }
 
     return (
         <div className="h-full flex flex-col p-4 md:p-6 space-y-6">

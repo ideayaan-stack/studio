@@ -82,3 +82,13 @@ export type ChatTeam = {
   avatarUrl: string;
   avatarHint: string;
 };
+
+export interface Meeting {
+  id: string;
+  title: string;
+  date: Timestamp;
+  time: string;
+  teamId?: string;
+  description?: string;
+  createdBy?: string;
+}
