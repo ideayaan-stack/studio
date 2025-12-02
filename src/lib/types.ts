@@ -8,6 +8,7 @@ export interface UserProfile {
   email?: string | null;
   displayName?: string | null;
   photoURL?: string | null;
+  phoneNumber?: string | null;
   role: Role;
   teamId?: string;
   teamIds?: string[];

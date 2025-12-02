@@ -19,6 +19,8 @@ export function ProfilePictureUpload() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const imgbbApiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
@@ -26,6 +28,9 @@ export function ProfilePictureUpload() {
   useEffect(() => {
     if (userProfile?.displayName) {
       setDisplayName(userProfile.displayName);
+    }
+    if (userProfile?.phoneNumber) {
+      setPhoneNumber(userProfile.phoneNumber);
     }
   }, [userProfile]);
 
@@ -151,6 +156,34 @@ export function ProfilePictureUpload() {
     }
   };
 
+  const handleSavePhoneNumber = async () => {
+    if (!db || !user) {
+      return;
+    }
+
+    setIsSavingPhone(true);
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        phoneNumber: phoneNumber.trim(),
+      });
+
+      toast({
+        title: 'Phone Number Updated',
+        description: 'Your phone number has been successfully updated.',
+      });
+    } catch (error: any) {
+      console.error('Error updating phone number:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: error.message || 'Failed to update phone number. Please try again.',
+      });
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
+
   const currentPhotoUrl = previewUrl || getFileUrl(userProfile?.photoURL) || null;
 
   return (
@@ -249,6 +282,39 @@ export function ProfilePictureUpload() {
         </div>
         <p className="text-xs text-muted-foreground">
           This is how your name appears to other users.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="phone-number">Phone Number</Label>
+        <div className="flex gap-2">
+          <Input
+            id="phone-number"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            placeholder="Enter your phone number"
+            disabled={isSavingPhone}
+          />
+          <Button
+            type="button"
+            onClick={handleSavePhoneNumber}
+            disabled={isSavingPhone || phoneNumber === (userProfile?.phoneNumber || '')}
+          >
+            {isSavingPhone ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </>
+            )}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Your phone number will be visible to other team members.
         </p>
       </div>
 

@@ -15,6 +15,8 @@ import {
   Folder,
   MessageSquare,
   Video,
+  Calendar,
+  Contact,
 } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { canAccessTeamsPage } from '@/lib/permissions';
@@ -27,6 +29,8 @@ const allNavItems: NavItem[] = [
   { href: '/dashboard/files', label: 'Files', icon: Folder, tooltip: "Files" },
   { href: '/dashboard/chat', label: 'Chat', icon: MessageSquare, tooltip: "Chat" },
   { href: '/dashboard/meetings', label: 'Meetings', icon: Video, tooltip: "Meetings" },
+  { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar, tooltip: "Calendar" },
+  { href: '/dashboard/directory', label: 'Directory', icon: Contact, tooltip: "Directory" },
 ];
 
 export function SidebarNav() {
@@ -36,8 +40,8 @@ export function SidebarNav() {
   // Filter nav items based on role
   const navItems = useMemo(() => {
     return allNavItems.filter(item => {
-      // Everyone can access Dashboard, Tasks, Files, and Chat
-      if (['/dashboard', '/dashboard/tasks', '/dashboard/files', '/dashboard/chat'].includes(item.href)) {
+      // Everyone can access Dashboard, Tasks, Files, Chat, Calendar, and Directory
+      if (['/dashboard', '/dashboard/tasks', '/dashboard/files', '/dashboard/chat', '/dashboard/calendar', '/dashboard/directory'].includes(item.href)) {
         return true;
       }
       // Teams page: Core, Semi-core, Head, and Volunteer can access
