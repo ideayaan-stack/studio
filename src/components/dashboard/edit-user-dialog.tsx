@@ -30,6 +30,8 @@ const roles = ['Core', 'Semi-core', 'Head', 'Volunteer', 'Unassigned'] as const;
 
 const editUserSchema = z.object({
   displayName: z.string().min(2, { message: 'Display name is required' }),
+  phoneNumber: z.string().optional(),
+  usn: z.string().optional(),
   role: z.enum(roles, { required_error: 'Role is required' }),
   teamIds: z.array(z.string()).optional(),
 }).refine((data) => {
@@ -67,6 +69,8 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
     resolver: zodResolver(editUserSchema),
     defaultValues: {
       displayName: user?.displayName || '',
+      phoneNumber: user?.phoneNumber || '',
+      usn: user?.usn || '',
       role: user?.role || 'Volunteer',
       teamIds: user?.teamIds || (user?.teamId ? [user.teamId] : []),
     },
@@ -76,6 +80,8 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
     if (user && isOpen) {
       reset({
         displayName: user.displayName || '',
+        phoneNumber: user.phoneNumber || '',
+        usn: user.usn || '',
         role: user.role || 'Volunteer',
         teamIds: user.teamIds || (user.teamId ? [user.teamId] : []),
       });
@@ -121,6 +127,8 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
       // Update directly in Firestore first for immediate feedback
       await updateDoc(userDocRef, {
         displayName: data.displayName,
+        phoneNumber: data.phoneNumber || null,
+        usn: data.usn || null,
         role: data.role,
         teamId: primaryTeamId,
         teamIds: finalTeamIds,
@@ -163,6 +171,17 @@ export function EditUserDialog({ isOpen, setIsOpen, user, teams }: EditUserDialo
             <Label htmlFor="displayName">Display Name</Label>
             <Input id="displayName" {...register('displayName')} />
             {errors.displayName && <p className="text-xs text-destructive">{errors.displayName.message}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber">Phone Number</Label>
+              <Input id="phoneNumber" placeholder="+91..." {...register('phoneNumber')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="usn">USN</Label>
+              <Input id="usn" placeholder="1DS..." {...register('usn')} />
+            </div>
           </div>
 
           <div className="space-y-2">

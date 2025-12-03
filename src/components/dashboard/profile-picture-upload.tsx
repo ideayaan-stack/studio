@@ -184,6 +184,43 @@ export function ProfilePictureUpload() {
     }
   };
 
+  const [usn, setUsn] = useState('');
+  const [isSavingUsn, setIsSavingUsn] = useState(false);
+
+  useEffect(() => {
+    if (userProfile?.usn) {
+      setUsn(userProfile.usn);
+    }
+  }, [userProfile]);
+
+  const handleSaveUsn = async () => {
+    if (!db || !user) {
+      return;
+    }
+
+    setIsSavingUsn(true);
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        usn: usn.trim(),
+      });
+
+      toast({
+        title: 'USN Updated',
+        description: 'Your USN has been successfully updated.',
+      });
+    } catch (error: any) {
+      console.error('Error updating USN:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: error.message || 'Failed to update USN. Please try again.',
+      });
+    } finally {
+      setIsSavingUsn(false);
+    }
+  };
+
   const currentPhotoUrl = previewUrl || getFileUrl(userProfile?.photoURL) || null;
 
   return (
@@ -315,6 +352,39 @@ export function ProfilePictureUpload() {
         </div>
         <p className="text-xs text-muted-foreground">
           Your phone number will be visible to other team members.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="usn">USN</Label>
+        <div className="flex gap-2">
+          <Input
+            id="usn"
+            value={usn}
+            onChange={(e) => setUsn(e.target.value)}
+            placeholder="Enter your USN"
+            disabled={isSavingUsn}
+          />
+          <Button
+            type="button"
+            onClick={handleSaveUsn}
+            disabled={isSavingUsn || usn === (userProfile?.usn || '')}
+          >
+            {isSavingUsn ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </>
+            )}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Your University Seat Number.
         </p>
       </div>
 

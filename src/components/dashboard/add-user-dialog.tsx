@@ -33,6 +33,8 @@ const addUserSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
   displayName: z.string().min(2, { message: 'Display name is required' }),
+  phoneNumber: z.string().optional(),
+  usn: z.string().optional(),
   role: z.enum(roles, { required_error: 'Role is required' }),
   teamIds: z.array(z.string()).optional(),
 }).refine((data) => {
@@ -111,7 +113,9 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
         data.displayName,
         data.role,
         primaryTeamId,
-        finalTeamIds // Pass all teams
+        finalTeamIds, // Pass all teams
+        data.phoneNumber,
+        data.usn
       );
 
       if (result?.error) {
@@ -192,6 +196,16 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" {...register('password')} />
             {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber">Phone Number</Label>
+              <Input id="phoneNumber" placeholder="+91..." {...register('phoneNumber')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="usn">USN</Label>
+              <Input id="usn" placeholder="1DS..." {...register('usn')} />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Role *</Label>

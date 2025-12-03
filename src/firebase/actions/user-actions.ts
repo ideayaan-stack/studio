@@ -14,6 +14,8 @@ interface CreateUserParams {
   role: Role;
   teamId?: string;
   teamIds?: string[];
+  phoneNumber?: string;
+  usn?: string;
 }
 
 /**
@@ -27,13 +29,14 @@ export async function createUserAction(params: CreateUserParams): Promise<{ erro
     const auth = getAuth(adminApp);
     const db = getFirestore(adminApp);
 
-    const { email, password, displayName, role, teamId, teamIds } = params;
+    const { email, password, displayName, role, teamId, teamIds, phoneNumber, usn } = params;
 
     // 1. Create user in Firebase Auth
     const userRecord = await auth.createUser({
       email,
       password,
       displayName,
+      phoneNumber: phoneNumber || undefined, // Optional in Auth
     });
 
     // 2. Create user profile in Firestore
@@ -44,6 +47,8 @@ export async function createUserAction(params: CreateUserParams): Promise<{ erro
       email: userRecord.email,
       displayName: userRecord.displayName,
       photoURL: userRecord.photoURL || null,
+      phoneNumber: phoneNumber || null,
+      usn: usn || null,
       role: role,
       teamId: teamId || '',
       teamIds: teamIds || [],

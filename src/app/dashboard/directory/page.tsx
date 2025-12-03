@@ -46,7 +46,9 @@ export default function DirectoryPage() {
             const name = user.displayName?.toLowerCase() || '';
             const email = user.email?.toLowerCase() || '';
             const role = user.role?.toLowerCase() || '';
-            return name.includes(lowerQuery) || email.includes(lowerQuery) || role.includes(lowerQuery);
+            const phone = user.phoneNumber?.toLowerCase() || '';
+            const usn = user.usn?.toLowerCase() || '';
+            return name.includes(lowerQuery) || email.includes(lowerQuery) || role.includes(lowerQuery) || phone.includes(lowerQuery) || usn.includes(lowerQuery);
         });
     }, [users, searchQuery]);
 
@@ -155,6 +157,11 @@ export default function DirectoryPage() {
                                                 <p className="text-xs text-muted-foreground truncate">
                                                     {getTeamName(user.teamId)}
                                                 </p>
+                                                {user.usn && (
+                                                    <p className="text-xs text-muted-foreground truncate font-mono">
+                                                        {user.usn}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="w-full space-y-2 pt-2 border-t">
                                                 <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center group cursor-pointer" onClick={() => user.email && copyToClipboard(user.email, 'Email')}>
@@ -187,6 +194,7 @@ export default function DirectoryPage() {
                                     <div className="col-span-2 hidden sm:block">Role</div>
                                     <div className="col-span-3 hidden md:block">Team</div>
                                     <div className="col-span-4 sm:col-span-4 md:col-span-3">Email</div>
+                                    <div className="col-span-2 hidden xl:block">USN</div>
                                     <div className="col-span-4 sm:col-span-3 md:col-span-1 text-right">Phone</div>
                                 </div>
                                 <div className="divide-y">
@@ -214,6 +222,9 @@ export default function DirectoryPage() {
                                             <div className="col-span-4 sm:col-span-4 md:col-span-3 truncate text-muted-foreground flex items-center gap-2 group cursor-pointer" onClick={() => user.email && copyToClipboard(user.email, 'Email')}>
                                                 {user.email}
                                                 <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </div>
+                                            <div className="col-span-2 hidden xl:block text-muted-foreground truncate font-mono">
+                                                {user.usn || '-'}
                                             </div>
                                             <div className="col-span-4 sm:col-span-3 md:col-span-1 text-right flex items-center justify-end gap-2">
                                                 {user.phoneNumber ? (
