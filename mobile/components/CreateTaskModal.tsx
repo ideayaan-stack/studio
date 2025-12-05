@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Platform } from 'react-native';
-import { X, Calendar, User, Flag, Plus } from 'lucide-react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Platform, Alert } from 'react-native';
+import { X, Calendar, User, Flag, Plus, Users, Check } from 'lucide-react-native';
 import { useAuth } from '../firebase/useAuth';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import type { Team, UserProfile } from '../lib/types';
 import { sendTaskAssignmentEmail } from '../lib/email';
+import MultiSelectModal from './MultiSelectModal';
 
 interface CreateTaskModalProps {
     visible: boolean;
@@ -20,11 +21,16 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
-    const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('');
+    const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
     const [deadline, setDeadline] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showMultiSelect, setShowMultiSelect] = useState(false);
+
+    const filteredUsers = selectedTeamId
+        ? users.filter(u => u.teamId === selectedTeamId)
+        : users;
 
     const handleSubmit = async () => {
         if (!db || !userProfile) return;
@@ -41,44 +47,55 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
         setError('');
 
         try {
-            const assignee = users.find(u => u.uid === selectedAssigneeId);
+            // If no assignee selected, create one unassigned task
+            const assignees = selectedAssigneeIds.length > 0 ? selectedAssigneeIds : [null];
 
-            const newTask = {
-                title: title.trim(),
-                description: description.trim(),
-                status: 'Pending',
-                priority: 'Normal',
-                teamId: selectedTeamId,
-                assignee: assignee ? {
-                    uid: assignee.uid,
-                    name: assignee.displayName || assignee.email || 'Unknown',
-                    avatarUrl: assignee.photoURL || null,
-                } : null,
-                deadline: Timestamp.fromDate(deadline),
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now(),
-                createdBy: userProfile.uid,
-            };
+            const promises = assignees.map(async (assigneeId) => {
+                const assignee = assigneeId ? users.find(u => u.uid === assigneeId) : null;
 
-            await addDoc(collection(db, 'tasks'), newTask);
+                const newTask = {
+                    title: title.trim(),
+                    description: description.trim(),
+                    status: 'Pending',
+                    priority: 'Normal',
+                    teamId: selectedTeamId,
+                    assignee: assignee ? {
+                        uid: assignee.uid,
+                        name: assignee.displayName || assignee.email || 'Unknown',
+                        avatarUrl: assignee.photoURL || null,
+                    } : null,
+                    deadline: Timestamp.fromDate(deadline),
+                    createdAt: Timestamp.now(),
+                    updatedAt: Timestamp.now(),
+                    createdBy: userProfile.uid,
+                };
 
-            // Send Email Notification
-            if (assignee && assignee.email) {
-                await sendTaskAssignmentEmail(
-                    assignee.email,
-                    assignee.displayName || 'User',
-                    newTask.title,
-                    format(deadline, 'MMM dd, yyyy')
-                );
-            }
+                await addDoc(collection(db, 'tasks'), newTask);
+
+                // Send Email Notification
+                if (assignee && assignee.email) {
+                    await sendTaskAssignmentEmail(
+                        assignee.email,
+                        assignee.displayName || 'User',
+                        newTask.title,
+                        format(deadline, 'MMM dd, yyyy')
+                    );
+                }
+            });
+
+            await Promise.all(promises);
 
             // Reset form
             setTitle('');
             setDescription('');
             setSelectedTeamId('');
-            setSelectedAssigneeId('');
+            setSelectedAssigneeIds([]);
             setDeadline(new Date());
             onClose();
+
+            if (assignees.length > 1) {
+                Alert.alert("Success", `${assignees.length} tasks created successfully.`);
+            }
         } catch (err: any) {
             setError(err.message || 'Failed to create task');
         } finally {
@@ -86,9 +103,17 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
         }
     };
 
-    const filteredUsers = selectedTeamId
-        ? users.filter(u => u.teamId === selectedTeamId)
-        : users;
+    const handleAssigneeSelect = (id: string) => {
+        if (id === 'all') {
+            const allIds = filteredUsers.map(u => u.uid);
+            setSelectedAssigneeIds(allIds);
+        } else if (id === 'custom') {
+            setShowMultiSelect(true);
+        } else {
+            // Single select behavior for the horizontal list, but stored as array
+            setSelectedAssigneeIds([id]);
+        }
+    };
 
     return (
         <Modal
@@ -139,7 +164,7 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
                                         key={team.id}
                                         onPress={() => {
                                             setSelectedTeamId(team.id);
-                                            setSelectedAssigneeId(''); // Reset assignee when team changes
+                                            setSelectedAssigneeIds([]); // Reset assignee when team changes
                                         }}
                                         className={`mr-3 px-4 py-2 rounded-full border ${selectedTeamId === team.id ? 'bg-orange-50 border-orange-500' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}
                                     >
@@ -152,20 +177,42 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
                         </View>
 
                         <View className="mb-4">
-                            <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignee</Text>
+                            <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignee ({selectedAssigneeIds.length})</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-                                {filteredUsers.map(user => (
-                                    <TouchableOpacity
-                                        key={user.uid}
-                                        onPress={() => setSelectedAssigneeId(user.uid)}
-                                        className={`mr-3 px-4 py-2 rounded-full border flex-row items-center ${selectedAssigneeId === user.uid ? 'bg-orange-50 border-orange-500' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}
-                                    >
-                                        <User size={14} color={selectedAssigneeId === user.uid ? '#ea580c' : '#6b7280'} />
-                                        <Text className={`ml-2 ${selectedAssigneeId === user.uid ? 'text-orange-600 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
-                                            {user.displayName || user.email?.split('@')[0]}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
+                                {selectedTeamId && (
+                                    <>
+                                        <TouchableOpacity
+                                            onPress={() => handleAssigneeSelect('all')}
+                                            className="mr-3 px-4 py-2 rounded-full border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 flex-row items-center"
+                                        >
+                                            <Users size={14} color="#6b7280" />
+                                            <Text className="ml-2 text-gray-600 dark:text-gray-400">All Members</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() => handleAssigneeSelect('custom')}
+                                            className="mr-3 px-4 py-2 rounded-full border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 flex-row items-center"
+                                        >
+                                            <Plus size={14} color="#6b7280" />
+                                            <Text className="ml-2 text-gray-600 dark:text-gray-400">Custom</Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+
+                                {filteredUsers.map(user => {
+                                    const isSelected = selectedAssigneeIds.includes(user.uid) && selectedAssigneeIds.length === 1;
+                                    return (
+                                        <TouchableOpacity
+                                            key={user.uid}
+                                            onPress={() => handleAssigneeSelect(user.uid)}
+                                            className={`mr-3 px-4 py-2 rounded-full border flex-row items-center ${isSelected ? 'bg-orange-50 border-orange-500' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}
+                                        >
+                                            <User size={14} color={isSelected ? '#ea580c' : '#6b7280'} />
+                                            <Text className={`ml-2 ${isSelected ? 'text-orange-600 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
+                                                {user.displayName || user.email?.split('@')[0]}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
                                 {filteredUsers.length === 0 && (
                                     <Text className="text-gray-400 italic ml-2">Select a team to see members</Text>
                                 )}
@@ -214,6 +261,14 @@ export default function CreateTaskModal({ visible, onClose, teams, users }: Crea
                     </ScrollView>
                 </View>
             </View>
+
+            <MultiSelectModal
+                visible={showMultiSelect}
+                onClose={() => setShowMultiSelect(false)}
+                users={filteredUsers}
+                selectedUserIds={selectedAssigneeIds}
+                onConfirm={setSelectedAssigneeIds}
+            />
         </Modal>
     );
 }

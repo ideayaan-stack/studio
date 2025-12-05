@@ -1,13 +1,16 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Linking, RefreshControl } from 'react-native';
 import { useAuth } from '../../firebase/useAuth';
 import { useCollection } from '../../firebase/useCollection';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, addDoc, Timestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../firebase/config';
 import { useMemo, useState } from 'react';
 import { FileText, Search, Filter, Download, PlusCircle } from 'lucide-react-native';
 import { canSeeAllFiles, canSeeAllTeams } from '../../lib/permissions';
 import type { FileItem, Team } from '../../lib/types';
 import { format } from 'date-fns';
 import { FlashList } from '@shopify/flash-list';
+import * as DocumentPicker from 'expo-document-picker';
 
 export default function FilesScreen() {
     const { user: authUser, userProfile, loading: authLoading, db } = useAuth();
@@ -98,22 +101,66 @@ export default function FilesScreen() {
         );
     };
 
+    const handleUpload = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: '*/*',
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled) return;
+
+            const file = result.assets[0];
+            if (!file) return;
+
+            // Upload to Firebase Storage
+            const response = await fetch(file.uri);
+            const blob = await response.blob();
+            const storageRef = ref(storage, `files/${Date.now()}_${file.name}`);
+
+            // Show loading indicator (simplified)
+            setRefreshing(true);
+
+            await uploadBytes(storageRef, blob);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            // Add to Firestore
+            await addDoc(collection(db!, 'files'), {
+                name: file.name,
+                url: downloadURL,
+                type: file.mimeType || 'application/octet-stream',
+                size: file.size || 0,
+                uploadDate: Timestamp.now(),
+                uploadedBy: userProfile?.uid,
+                teamId: userProfile?.teamId || null, // Assign to user's team by default
+            });
+
+            setRefreshing(false);
+            refreshFiles();
+        } catch (error) {
+            console.error("Error uploading file:", error);
+            setRefreshing(false);
+            // Ideally show toast
+        }
+    };
+
     return (
-        <View className="flex-1 bg-gray-50">
-            <View className="px-4 pt-4 pb-2 bg-white border-b border-gray-200">
+        <View className="flex-1 bg-gray-50 dark:bg-gray-900">
+            <View className="px-4 pt-4 pb-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <View className="flex-row justify-between items-center mb-4">
-                    <Text className="text-2xl font-bold text-gray-900">Files</Text>
+                    <Text className="text-2xl font-bold text-gray-900 dark:text-white">Files</Text>
                     <TouchableOpacity>
                         <Filter size={20} color="#6b7280" />
                     </TouchableOpacity>
                 </View>
 
                 {/* Search */}
-                <View className="flex-row items-center bg-gray-100 rounded-lg px-3 py-2 mb-4">
+                <View className="flex-row items-center bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2 mb-4">
                     <Search size={20} color="#9ca3af" />
                     <TextInput
-                        className="flex-1 ml-2 text-base text-gray-900"
+                        className="flex-1 ml-2 text-base text-gray-900 dark:text-white"
                         placeholder="Search files..."
+                        placeholderTextColor="#9ca3af"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
@@ -130,7 +177,7 @@ export default function FilesScreen() {
                     ListEmptyComponent={
                         <View className="items-center justify-center py-10">
                             <FileText size={48} color="#e5e7eb" />
-                            <Text className="text-gray-500 mt-4">No files found</Text>
+                            <Text className="text-gray-500 dark:text-gray-400 mt-4">No files found</Text>
                         </View>
                     }
                     refreshControl={
@@ -143,10 +190,10 @@ export default function FilesScreen() {
                 />
             </View>
 
-            {/* FAB for Upload (Placeholder) */}
+            {/* FAB for Upload */}
             <TouchableOpacity
                 className="absolute bottom-24 right-6 w-14 h-14 bg-orange-500 rounded-full items-center justify-center shadow-lg"
-                onPress={() => {/* TODO: Open upload dialog */ }}
+                onPress={handleUpload}
             >
                 <PlusCircle color="white" size={28} />
             </TouchableOpacity>

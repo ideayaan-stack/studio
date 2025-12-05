@@ -4,7 +4,7 @@ import { collection, query, where } from 'firebase/firestore';
 import { useCollection } from '../../firebase/useCollection';
 import { db, auth } from '../../firebase/config';
 import { useMemo, useState, useCallback } from 'react';
-import { Users, CheckSquare, Folder, Activity, Settings, Video } from 'lucide-react-native';
+import { Users, CheckSquare, Folder, Activity, Settings, Video, FileText } from 'lucide-react-native';
 import { canSeeAllTeams, canSeeAllTasks, canSeeAllFiles } from '../../lib/permissions';
 import { format } from 'date-fns';
 import { Link } from 'expo-router';
@@ -182,6 +182,52 @@ export default function Dashboard() {
                         <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.description}</Text>
                     </View>
                 ))}
+
+                {/* Feature Navigation Grid */}
+                <View className="w-full flex-row flex-wrap justify-between mb-2">
+                    <Link href="/dashboard/directory" asChild>
+                        <TouchableOpacity className="w-[48%] bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl shadow-sm mb-4 border border-indigo-100 dark:border-indigo-900/30">
+                            <View className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 items-center justify-center mb-2">
+                                <Users size={20} color="#6366f1" />
+                            </View>
+                            <Text className="text-lg font-bold text-gray-900 dark:text-white">Directory</Text>
+                            <Text className="text-xs text-gray-500 dark:text-gray-400">Find team members</Text>
+                        </TouchableOpacity>
+                    </Link>
+
+                    <Link href="/dashboard/calendar" asChild>
+                        <TouchableOpacity className="w-[48%] bg-pink-50 dark:bg-pink-900/20 p-4 rounded-xl shadow-sm mb-4 border border-pink-100 dark:border-pink-900/30">
+                            <View className="w-10 h-10 rounded-full bg-pink-100 dark:bg-pink-900 items-center justify-center mb-2">
+                                <Activity size={20} color="#ec4899" />
+                            </View>
+                            <Text className="text-lg font-bold text-gray-900 dark:text-white">Calendar</Text>
+                            <Text className="text-xs text-gray-500 dark:text-gray-400">View schedule</Text>
+                        </TouchableOpacity>
+                    </Link>
+                </View>
+
+                {/* Feature Navigation Grid Row 2 */}
+                <View className="w-full flex-row flex-wrap justify-between mb-2">
+                    <Link href="/dashboard/files" asChild>
+                        <TouchableOpacity className="w-[48%] bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl shadow-sm mb-4 border border-blue-100 dark:border-blue-900/30">
+                            <View className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 items-center justify-center mb-2">
+                                <FileText size={20} color="#3b82f6" />
+                            </View>
+                            <Text className="text-lg font-bold text-gray-900 dark:text-white">Files</Text>
+                            <Text className="text-xs text-gray-500 dark:text-gray-400">Manage documents</Text>
+                        </TouchableOpacity>
+                    </Link>
+
+                    <Link href="/dashboard/tasks" asChild>
+                        <TouchableOpacity className="w-[48%] bg-green-50 dark:bg-green-900/20 p-4 rounded-xl shadow-sm mb-4 border border-green-100 dark:border-green-900/30">
+                            <View className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 items-center justify-center mb-2">
+                                <CheckSquare size={20} color="#22c55e" />
+                            </View>
+                            <Text className="text-lg font-bold text-gray-900 dark:text-white">Tasks</Text>
+                            <Text className="text-xs text-gray-500 dark:text-gray-400">Track progress</Text>
+                        </TouchableOpacity>
+                    </Link>
+                </View>
 
                 {/* Meetings Entry Point */}
                 <Link href="/dashboard/meetings" asChild>

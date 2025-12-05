@@ -1,9 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { UserProfile } from './types';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { collection, query, where, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { db, auth } from '../firebase/config';
 import { isCore, isSemiCore, isHead, isVolunteer } from './permissions';
-
 import { Platform } from 'react-native';
 
 // Configure notification handler
@@ -20,6 +19,8 @@ if (Platform.OS !== 'web') {
 }
 
 export async function registerForPushNotificationsAsync() {
+    if (Platform.OS === 'web') return;
+
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
@@ -29,7 +30,30 @@ export async function registerForPushNotificationsAsync() {
     if (finalStatus !== 'granted') {
         return;
     }
-    return;
+
+    // Get the token
+    try {
+        const projectId = 'your-project-id'; // Ideally from app.json/eas.json
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+            projectId,
+        });
+        const token = tokenData.data;
+        console.log("Push Token:", token);
+
+        // Save token to user profile in Firestore
+        if (auth.currentUser) {
+            const userRef = doc(db, 'users', auth.currentUser.uid);
+            await updateDoc(userRef, {
+                pushToken: token,
+                updatedAt: Timestamp.now()
+            });
+        }
+
+        return token;
+    } catch (error) {
+        console.log("Error fetching/saving push token:", error);
+        return;
+    }
 }
 
 export async function schedulePeriodicReminders(userProfile: UserProfile) {
