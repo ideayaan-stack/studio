@@ -132,6 +132,14 @@ export function canChatInAllTeams(userProfile: UserProfile | null | undefined): 
 }
 
 /**
+ * Check if user can export data
+ * Only Core can export data
+ */
+export function canExportData(userProfile: UserProfile | null | undefined): boolean {
+    return isCore(userProfile);
+}
+
+/**
  * Get user's effective access level
  * Returns the highest role level for permission checks
  */

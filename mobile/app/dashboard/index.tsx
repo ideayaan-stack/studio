@@ -1,11 +1,12 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useAuth } from '../../firebase/useAuth';
 import { collection, query, where } from 'firebase/firestore';
 import { useCollection } from '../../firebase/useCollection';
 import { db, auth } from '../../firebase/config';
 import { useMemo, useState, useCallback } from 'react';
-import { Users, CheckSquare, Folder, Activity, Settings, Video, FileText } from 'lucide-react-native';
-import { canSeeAllTeams, canSeeAllTasks, canSeeAllFiles } from '../../lib/permissions';
+import { Users, CheckSquare, Folder, Calendar, Settings, Video, Download } from 'lucide-react-native';
+import { canSeeAllTeams, canSeeAllTasks, canSeeAllFiles, canExportData } from '../../lib/permissions';
+import { exportDataToExcel } from '../../lib/export';
 import { format } from 'date-fns';
 import { Link } from 'expo-router';
 import type { Team, Task, FileItem } from '../../lib/types';
@@ -13,6 +14,7 @@ import type { Team, Task, FileItem } from '../../lib/types';
 export default function Dashboard() {
     const { user: authUser, userProfile, loading: isLoading } = useAuth();
     const [refreshing, setRefreshing] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     // Teams query
     const teamsQuery = useMemo(() => {
@@ -61,19 +63,24 @@ export default function Dashboard() {
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        // Trigger re-fetch in useCollection if supported, or just wait a bit to simulate
-        // Since useCollection is real-time (onSnapshot), "refresh" usually means ensuring connection
-        // For now, we'll simulate a delay to show the spinner, as data updates are pushed automatically
-        // Ideally, useCollection should expose a 'refresh' method if it was using getDocs
-
-        // If we want to force a re-fetch, we might need to toggle the query or invalidate cache
-        // But with onSnapshot, it's always "fresh". 
-        // The user might be seeing "stuck" if the socket is disconnected.
-
         setTimeout(() => {
             setRefreshing(false);
         }, 1000);
     }, []);
+
+    const handleExport = async () => {
+        if (isExporting) return;
+        setIsExporting(true);
+        try {
+            await exportDataToExcel();
+            Alert.alert("Success", "Data exported successfully. You can share or save the file.");
+        } catch (error: any) {
+            console.error(error);
+            Alert.alert("Error", "Failed to export data: " + error.message);
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const summaryData = useMemo(() => {
         const totalTasks = tasks?.length || 0;
@@ -100,33 +107,32 @@ export default function Dashboard() {
             },
             {
                 icon: CheckSquare,
-                title: 'Completed',
-                value: `${completedTasks}/${totalTasks}`,
-                description: `${completionRate}% rate`,
-                color: 'text-green-500',
-                bgColor: 'bg-green-100'
+                title: 'Pending',
+                value: String(pendingTasks),
+                description: 'Tasks needing attention',
+                color: 'text-orange-500',
+                bgColor: 'bg-orange-100'
+            },
+            {
+                icon: CheckSquare,
+                title: 'In Progress',
+                value: String(inProgressTasks),
+                description: 'Active tasks',
+                color: 'text-purple-500',
+                bgColor: 'bg-purple-100'
             },
             {
                 icon: Folder,
                 title: 'Files',
                 value: String(files?.length || 0),
                 description: lastUploadText,
-                color: 'text-purple-500',
-                bgColor: 'bg-purple-100'
-            },
-            {
-                icon: Activity,
-                title: 'Pending',
-                value: String(pendingTasks),
-                description: `${inProgressTasks} active`,
-                color: 'text-orange-500',
-                bgColor: 'bg-orange-100'
-            },
+                color: 'text-green-500',
+                bgColor: 'bg-green-100'
+            }
         ];
     }, [teams, tasks, files, userProfile]);
 
     if (isPageLoading && !refreshing) {
-        // If auth is done but no profile, show error
         if (!isLoading && !userProfile) {
             return (
                 <View className="flex-1 items-center justify-center bg-gray-50 p-4">
@@ -175,7 +181,7 @@ export default function Dashboard() {
                     <View key={index} className="w-[48%] bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-4 border border-gray-100 dark:border-gray-700">
                         <View className={`w-10 h-10 rounded-full items-center justify-center mb-3 ${item.bgColor}`}>
                             {/* @ts-ignore */}
-                            <item.icon size={20} color="currentColor" />
+                            <item.icon size={20} color={item.color && item.color.includes('text-') ? item.color.replace('text-', '') : 'currentColor'} style={{ color: item.color === 'text-blue-500' ? '#3b82f6' : item.color === 'text-orange-500' ? '#f97316' : item.color === 'text-purple-500' ? '#a855f7' : item.color === 'text-green-500' ? '#22c55e' : 'gray' }} />
                         </View>
                         <Text className="text-2xl font-bold text-gray-900 dark:text-white">{item.value}</Text>
                         <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-1">{item.title}</Text>
@@ -198,7 +204,7 @@ export default function Dashboard() {
                     <Link href="/dashboard/calendar" asChild>
                         <TouchableOpacity className="w-[48%] bg-pink-50 dark:bg-pink-900/20 p-4 rounded-xl shadow-sm mb-4 border border-pink-100 dark:border-pink-900/30">
                             <View className="w-10 h-10 rounded-full bg-pink-100 dark:bg-pink-900 items-center justify-center mb-2">
-                                <Activity size={20} color="#ec4899" />
+                                <Calendar size={20} color="#ec4899" />
                             </View>
                             <Text className="text-lg font-bold text-gray-900 dark:text-white">Calendar</Text>
                             <Text className="text-xs text-gray-500 dark:text-gray-400">View schedule</Text>
@@ -211,7 +217,7 @@ export default function Dashboard() {
                     <Link href="/dashboard/files" asChild>
                         <TouchableOpacity className="w-[48%] bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl shadow-sm mb-4 border border-blue-100 dark:border-blue-900/30">
                             <View className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 items-center justify-center mb-2">
-                                <FileText size={20} color="#3b82f6" />
+                                <Folder size={20} color="#3b82f6" />
                             </View>
                             <Text className="text-lg font-bold text-gray-900 dark:text-white">Files</Text>
                             <Text className="text-xs text-gray-500 dark:text-gray-400">Manage documents</Text>
@@ -244,6 +250,26 @@ export default function Dashboard() {
                         <Settings size={20} color="#f97316" className="rotate-90" />
                     </TouchableOpacity>
                 </Link>
+
+                {/* Export Data Button (Core only) */}
+                {canExportData(userProfile) && (
+                    <TouchableOpacity
+                        className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-4 border border-gray-200 dark:border-gray-700 flex-row items-center justify-between"
+                        onPress={handleExport}
+                        disabled={isExporting}
+                    >
+                        <View className="flex-row items-center">
+                            <View className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 items-center justify-center mr-3">
+                                {isExporting ? <ActivityIndicator size="small" color="#374151" /> : <Download size={20} color="#374151" />}
+                            </View>
+                            <View>
+                                <Text className="text-lg font-bold text-gray-900 dark:text-white">Export Data</Text>
+                                <Text className="text-xs text-gray-500 dark:text-gray-400">Download Excel report</Text>
+                            </View>
+                        </View>
+                        <Settings size={20} color="#374151" className="rotate-90 opacity-0" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Recent Tasks */}

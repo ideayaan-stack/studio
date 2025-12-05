@@ -54,9 +54,21 @@ export default function DashboardLayout() {
                             href: null,
                         }}
                     />
-                    {/* Explicitly hide meetings from tabs */}
+                    {/* Explicitly hide meetings, calendar, and directory from tabs */}
                     <Tabs.Screen
                         name="meetings"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="calendar"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="directory"
                         options={{
                             href: null,
                         }}
