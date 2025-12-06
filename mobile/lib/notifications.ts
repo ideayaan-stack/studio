@@ -33,7 +33,7 @@ export async function registerForPushNotificationsAsync() {
 
     // Get the token
     try {
-        const projectId = 'your-project-id'; // Ideally from app.json/eas.json
+        const projectId = '81e77ce6-b7af-48f1-b426-9e65c3bf47ef'; // From app.json
         const tokenData = await Notifications.getExpoPushTokenAsync({
             projectId,
         });
