@@ -9,9 +9,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import Link from "next/link";
-import { Lightbulb, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -90,53 +89,73 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md mx-auto shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Lightbulb className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-headline font-bold bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">Ideayaan</h1>
+      <Card className="w-full max-w-md mx-auto shadow-2xl border-border/50 bg-card/60 backdrop-blur-xl">
+        <CardHeader className="space-y-4 text-center pb-8">
+          <div className="flex items-center justify-center gap-2 mb-2 h-20">
+            {/* Logo for Light Mode */}
+            <div className="relative h-20 w-full max-w-[200px] dark:hidden">
+              <Image
+                src="/logo-light.png"
+                alt="Ideayaan Logo"
+                fill
+                className="object-contain object-center"
+                priority
+              />
+            </div>
+            {/* Logo for Dark Mode */}
+            <div className="relative h-20 w-full max-w-[200px] hidden dark:block">
+              <Image
+                src="/logo-dark.png"
+                alt="Ideayaan Logo"
+                fill
+                className="object-contain object-center"
+                priority
+              />
+            </div>
           </div>
-          <CardTitle className="text-2xl font-headline">Welcome Back</CardTitle>
-          <CardDescription>
-            Enter your credentials to access your dashboard.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <CardTitle className="text-2xl font-headline font-bold">Welcome Back</CardTitle>
+            <CardDescription className="text-base">
+              Enter your credentials to access your dashboard.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-sm font-medium">Email</Label>
             <Input
               id="email"
               type="email"
-              placeholder="m@example.com"
+              placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
+              className="h-11 bg-background/50"
             />
           </div>
           <div className="space-y-2">
-            <div className="flex items-center">
-              <Label htmlFor="password">Password</Label>
-              <Link
-                href="#"
-                className="ml-auto inline-block text-sm underline"
-              >
-                Forgot your password?
-              </Link>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password" className="text-sm font-medium">Password</Label>
             </div>
             <Input
               id="password"
               type="password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
               onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleLogin()}
+              className="h-11 bg-background/50"
             />
           </div>
-          <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
+          <Button
+            className="w-full h-11 text-base font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300"
+            onClick={handleLogin}
+            disabled={isLoading}
+          >
             {isLoading ? <Loader2 className="animate-spin" /> : 'Sign In'}
           </Button>
-          <Separator className="my-4" />
-          <div className="text-center text-sm text-muted-foreground">
+          <div className="text-center text-xs text-muted-foreground pt-4">
             Ideayaan is an internal tool. Please contact a core team member if you have trouble logging in.
           </div>
         </CardContent>
