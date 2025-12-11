@@ -20,14 +20,14 @@ export default function Directory() {
         if (!db) return null;
         return collection(db, 'teams');
     }, [db]);
-    const { data: teams } = useCollection(teamsQuery);
+    const { data: teams } = useCollection<any>(teamsQuery);
 
     // Fetch Users
     const usersQuery = useMemo(() => {
         if (!db) return null;
         return collection(db, 'users');
     }, [db]);
-    const { data: users, loading } = useCollection(usersQuery);
+    const { data: users, loading } = useCollection<any>(usersQuery);
 
     const filteredUsers = useMemo(() => {
         if (!users) return [];
@@ -52,7 +52,7 @@ export default function Directory() {
     };
 
     const renderItem = ({ item }: { item: any }) => (
-        <View className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-3 border border-gray-100 dark:border-gray-700 mx-1">
+        <View className="bg-white dark:bg-apple-gray-800 p-4 rounded-2xl shadow-sm mb-3 border border-gray-100 dark:border-gray-700 mx-1">
             <View className="flex-row items-center">
                 <Image
                     source={item.photoURL ? { uri: item.photoURL } : require('../../assets/adaptive-icon.png')}
@@ -94,14 +94,18 @@ export default function Directory() {
     );
 
     return (
-        <View className="flex-1 bg-gray-50 dark:bg-gray-900">
-            <Stack.Screen options={{ title: 'Directory', headerShadowVisible: false }} />
+        <View className="flex-1 bg-apple-gray-50 dark:bg-apple-gray-900">
+            <Stack.Screen options={{
+                title: 'Directory',
+                headerShadowVisible: false,
+                headerStyle: { backgroundColor: '#F9FAFB' }, // match apple-gray-50
+            }} />
 
-            <View className="p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                <View className="flex-row items-center bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2">
+            <View className="p-4 bg-apple-gray-50 dark:bg-apple-gray-900 border-b border-gray-200 dark:border-gray-800">
+                <View className="flex-row items-center bg-white dark:bg-apple-gray-800 rounded-xl px-4 py-3 border border-gray-200 dark:border-gray-700">
                     <Search size={20} color="#9ca3af" />
                     <TextInput
-                        className="flex-1 ml-2 text-gray-900 dark:text-white h-10"
+                        className="flex-1 ml-3 text-gray-900 dark:text-white h-full text-base"
                         placeholder="Search directory..."
                         placeholderTextColor="#9ca3af"
                         value={searchQuery}
@@ -115,17 +119,20 @@ export default function Directory() {
                     <ActivityIndicator size="large" color="#f97316" />
                 </View>
             ) : (
-                <FlashList
-                    data={filteredUsers}
-                    renderItem={renderItem}
-                    estimatedItemSize={120}
-                    contentContainerStyle={{ padding: 16 }}
-                    ListEmptyComponent={
-                        <View className="items-center justify-center py-10">
-                            <Text className="text-gray-500 dark:text-gray-400">No users found</Text>
-                        </View>
-                    }
-                />
+                <View className="flex-1 w-full pl-4">
+                    {/* @ts-ignore */}
+                    <FlashList
+                        data={filteredUsers}
+                        renderItem={renderItem}
+                        estimatedItemSize={120}
+                        contentContainerStyle={{ paddingRight: 16, paddingBottom: 40 }}
+                        ListEmptyComponent={
+                            <View className="items-center justify-center py-10">
+                                <Text className="text-gray-500 dark:text-gray-400">No users found</Text>
+                            </View>
+                        }
+                    />
+                </View>
             )}
         </View>
     );

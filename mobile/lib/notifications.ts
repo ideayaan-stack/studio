@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { UserProfile } from './types';
-import { collection, query, where, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import { isCore, isSemiCore, isHead, isVolunteer } from './permissions';
 import { Platform } from 'react-native';
@@ -20,6 +20,16 @@ if (Platform.OS !== 'web') {
 
 export async function registerForPushNotificationsAsync() {
     if (Platform.OS === 'web') return;
+
+    // Create channel for Android reliability
+    if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+        });
+    }
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -41,12 +51,14 @@ export async function registerForPushNotificationsAsync() {
         console.log("Push Token:", token);
 
         // Save token to user profile in Firestore
+        // Use setDoc with merge: true to effectively upsert without erroring if doc missing
         if (auth.currentUser) {
+            const { setDoc } = require('firebase/firestore'); // Import locally or ensure imported at top
             const userRef = doc(db, 'users', auth.currentUser.uid);
-            await updateDoc(userRef, {
+            await setDoc(userRef, {
                 pushToken: token,
                 updatedAt: Timestamp.now()
-            });
+            }, { merge: true });
         }
 
         return token;

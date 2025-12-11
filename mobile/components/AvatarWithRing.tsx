@@ -10,12 +10,13 @@ interface AvatarWithRingProps {
     displayName?: string | null;
     email?: string | null;
     role?: Role | null;
-    size?: 'sm' | 'md' | 'lg' | 'xl';
+    size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
     className?: string;
     onPress?: () => void;
 }
 
 const sizeClasses = {
+    xs: 'w-6 h-6',
     sm: 'w-8 h-8',
     md: 'w-10 h-10',
     lg: 'w-14 h-14',
@@ -23,6 +24,7 @@ const sizeClasses = {
 };
 
 const textSizeClasses = {
+    xs: 'text-[10px]',
     sm: 'text-xs',
     md: 'text-sm',
     lg: 'text-lg',
@@ -30,6 +32,7 @@ const textSizeClasses = {
 };
 
 const ringPadding = {
+    xs: 1,
     sm: 2,
     md: 3,
     lg: 3,
@@ -55,7 +58,7 @@ export default function AvatarWithRing({
     const padding = ringPadding[size];
 
     const AvatarContent = () => (
-        <View className={cn("rounded-full bg-orange-100 dark:bg-orange-900 items-center justify-center overflow-hidden", sizeClass)}>
+        <View className={cn("rounded-full bg-orange-50 dark:bg-gray-700 items-center justify-center overflow-hidden", sizeClass)}>
             {photoURL ? (
                 <Image
                     source={{ uri: photoURL }}
@@ -64,7 +67,7 @@ export default function AvatarWithRing({
                     transition={200}
                 />
             ) : (
-                <Text className={cn("font-bold text-orange-600 dark:text-orange-400", textSizeClass)}>
+                <Text className={cn("font-medium text-orange-600 dark:text-gray-300", textSizeClass)}>
                     {displayName?.charAt(0).toUpperCase() || email?.charAt(0).toUpperCase() || 'U'}
                 </Text>
             )}
@@ -80,7 +83,7 @@ export default function AvatarWithRing({
                     end={{ x: 1, y: 0 }}
                     style={{ padding, borderRadius: 9999 }}
                 >
-                    <View className="bg-white dark:bg-gray-800 rounded-full p-[2px]">
+                    <View className="bg-white dark:bg-gray-800 rounded-full p-[1px]">
                         {children}
                     </View>
                 </LinearGradient>
@@ -106,7 +109,7 @@ export default function AvatarWithRing({
                 `border-[${padding}px]`,
                 borderColor,
                 borderStyle
-            )} style={{ padding: 2, borderWidth: padding }}>
+            )} style={{ padding: 1, borderWidth: padding }}>
                 {children}
             </View>
         );

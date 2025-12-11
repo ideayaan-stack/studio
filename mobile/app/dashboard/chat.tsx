@@ -1,12 +1,11 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Image, SafeAreaView } from 'react-native';
 import { useAuth } from '../../firebase/useAuth';
 import { useCollection } from '../../firebase/useCollection';
 import { collection, query, where } from 'firebase/firestore';
-import { useMemo, useState } from 'react';
-import { MessageSquare, Users, Settings } from 'lucide-react-native';
+import { useMemo } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import { canChatInAllTeams } from '../../lib/permissions';
 import type { Team } from '../../lib/types';
-import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import AvatarWithRing from '../../components/AvatarWithRing';
 
@@ -52,8 +51,8 @@ export default function ChatScreen() {
 
     if (isLoading) {
         return (
-            <View className="flex-1 items-center justify-center bg-white">
-                <ActivityIndicator size="large" color="#25D366" />
+            <View className="flex-1 items-center justify-center bg-apple-gray-50 dark:bg-apple-gray-900">
+                <ActivityIndicator size="large" color="#f97316" />
             </View>
         );
     }
@@ -61,7 +60,7 @@ export default function ChatScreen() {
     const renderChatItem = ({ item }: { item: any }) => {
         return (
             <TouchableOpacity
-                className="flex-row items-center px-4 py-3 bg-white active:bg-gray-50"
+                className="flex-row items-center px-4 py-3 bg-white dark:bg-apple-gray-800 active:bg-gray-50 dark:active:bg-gray-700 border-b border-gray-100 dark:border-gray-700"
                 onPress={() => {
                     router.push(`/dashboard/chat/${item.id}`);
                 }}
@@ -76,22 +75,17 @@ export default function ChatScreen() {
                     />
                 </View>
 
-                <View className="flex-1 border-b border-gray-100 pb-3 justify-center h-full">
+                <View className="flex-1 justify-center h-full py-1">
                     <View className="flex-row justify-between items-center mb-1">
                         <Text className="text-base font-bold text-gray-900 dark:text-white" numberOfLines={1}>
                             {item.name}
                         </Text>
-                        {/* Placeholder for last message time - would need real data */}
-                        <Text className="text-xs text-gray-500 dark:text-gray-400">Yesterday</Text>
+                        <Text className="text-xs text-gray-500 dark:text-gray-400">Today</Text>
                     </View>
                     <View className="flex-row justify-between items-center">
                         <Text className="text-gray-500 dark:text-gray-400 text-sm flex-1 mr-2" numberOfLines={1}>
                             {item.isCommon ? 'Welcome to the community!' : item.description}
                         </Text>
-                        {/* Unread badge placeholder */}
-                        {/* <View className="bg-green-500 w-5 h-5 rounded-full items-center justify-center">
-                            <Text className="text-white text-[10px] font-bold">2</Text>
-                        </View> */}
                     </View>
                 </View>
             </TouchableOpacity>
@@ -99,17 +93,20 @@ export default function ChatScreen() {
     };
 
     return (
-        <View className="flex-1 bg-white dark:bg-gray-900">
-            <View className="px-4 pt-4 pb-2 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-                <Text className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Chats</Text>
+        <SafeAreaView className="flex-1 bg-apple-gray-50 dark:bg-apple-gray-900">
+            <View className="px-5 pt-4 pb-4 bg-apple-gray-50 dark:bg-apple-gray-900 border-b border-gray-100 dark:border-gray-800">
+                <Text className="text-3xl font-bold text-gray-900 dark:text-white">Chats</Text>
             </View>
 
-            <FlatList
-                data={chatList}
-                renderItem={renderChatItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={{ paddingBottom: 20 }}
-            />
-        </View>
+            <View className="flex-1 w-full">
+                <FlashList
+                    data={chatList}
+                    renderItem={renderChatItem}
+                    estimatedItemSize={80}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                />
+            </View>
+        </SafeAreaView>
     );
 }

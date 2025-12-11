@@ -2,15 +2,31 @@ import { Tabs } from 'expo-router';
 import { LayoutDashboard, Users, CheckSquare, Folder, MessageSquare, Settings, Video } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View } from 'react-native';
+import { useTheme } from '../../lib/theme';
+import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
 
-export default function DashboardLayout() {
-    return (
-        <View className="flex-1 bg-white">
-            <SafeAreaView edges={['top']} className="flex-1 bg-white">
+const { isDark } = useTheme();
+
+return (
+    <View className="flex-1 bg-white dark:bg-black">
+        <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+            <SafeAreaView edges={['top']} className="flex-1 bg-white dark:bg-black">
                 <Tabs screenOptions={{
-                    tabBarActiveTintColor: 'orange',
+                    tabBarActiveTintColor: '#f97316',
+                    tabBarInactiveTintColor: isDark ? '#9ca3af' : '#6b7280',
                     headerShown: false,
-                    tabBarStyle: { borderTopWidth: 1, borderTopColor: '#e5e7eb' }
+                    tabBarStyle: {
+                        borderTopWidth: 1,
+                        borderTopColor: isDark ? '#374151' : '#e5e7eb', // gray-700 : gray-200
+                        backgroundColor: isDark ? '#111827' : '#ffffff', // gray-900 : white
+                        height: 60,
+                        paddingBottom: 8,
+                        paddingTop: 8,
+                    },
+                    tabBarLabelStyle: {
+                        fontSize: 12,
+                        fontWeight: '500',
+                    }
                 }}>
                     <Tabs.Screen
                         name="index"
@@ -82,6 +98,7 @@ export default function DashboardLayout() {
                     />
                 </Tabs>
             </SafeAreaView>
-        </View>
-    );
+        </ThemeProvider>
+    </View>
+);
 }

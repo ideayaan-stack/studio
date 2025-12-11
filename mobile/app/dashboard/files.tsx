@@ -79,14 +79,14 @@ export default function FilesScreen() {
 
     const renderFileItem = ({ item }: { item: FileItem }) => {
         return (
-            <View className="bg-white p-4 rounded-xl shadow-sm mb-3 border border-gray-100 flex-row items-center mx-4">
-                <View className="w-10 h-10 rounded-lg bg-blue-50 items-center justify-center mr-3">
+            <View className="bg-white dark:bg-apple-gray-800 p-4 rounded-xl shadow-sm mb-3 border border-gray-100 dark:border-gray-700 flex-row items-center mx-1">
+                <View className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 items-center justify-center mr-3">
                     <FileText size={20} color="#3b82f6" />
                 </View>
                 <View className="flex-1 mr-2">
-                    <Text className="font-semibold text-gray-900 mb-1" numberOfLines={1}>{item.name}</Text>
+                    <Text className="font-semibold text-gray-900 dark:text-white mb-1" numberOfLines={1}>{item.name}</Text>
                     <View className="flex-row items-center">
-                        <Text className="text-xs text-gray-500 mr-2">
+                        <Text className="text-xs text-gray-500 dark:text-gray-400 mr-2">
                             {format(new Date(item.uploadDate.seconds * 1000), 'MMM dd, yyyy')}
                         </Text>
                     </View>
@@ -145,17 +145,17 @@ export default function FilesScreen() {
     };
 
     return (
-        <View className="flex-1 bg-gray-50 dark:bg-gray-900">
-            <View className="px-4 pt-4 pb-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <View className="flex-1 bg-apple-gray-50 dark:bg-apple-gray-900">
+            <View className="px-4 pt-4 pb-2 bg-apple-gray-50 dark:bg-apple-gray-900 border-b border-gray-200 dark:border-gray-800">
                 <View className="flex-row justify-between items-center mb-4">
-                    <Text className="text-2xl font-bold text-gray-900 dark:text-white">Files</Text>
+                    <Text className="text-3xl font-bold text-gray-900 dark:text-white">Files</Text>
                     <TouchableOpacity>
-                        <Filter size={20} color="#6b7280" />
+                        <Filter size={24} color="#6b7280" />
                     </TouchableOpacity>
                 </View>
 
                 {/* Search */}
-                <View className="flex-row items-center bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2 mb-4">
+                <View className="flex-row items-center bg-white dark:bg-apple-gray-800 rounded-xl px-4 py-3 mb-4 border border-gray-200 dark:border-gray-700">
                     <Search size={20} color="#9ca3af" />
                     <TextInput
                         className="flex-1 ml-2 text-base text-gray-900 dark:text-white"
@@ -167,13 +167,14 @@ export default function FilesScreen() {
                 </View>
             </View>
 
-            <View className="flex-1 w-full">
+            <View className="flex-1 w-full pl-4">
+                {/* @ts-ignore */}
                 <FlashList
                     data={filteredFiles}
                     renderItem={renderFileItem}
                     estimatedItemSize={80}
                     keyExtractor={(item) => item.id}
-                    contentContainerStyle={{ paddingVertical: 16, paddingBottom: 100 }}
+                    contentContainerStyle={{ paddingRight: 16, paddingVertical: 16, paddingBottom: 100 }}
                     ListEmptyComponent={
                         <View className="items-center justify-center py-10">
                             <FileText size={48} color="#e5e7eb" />
@@ -192,8 +193,9 @@ export default function FilesScreen() {
 
             {/* FAB for Upload */}
             <TouchableOpacity
-                className="absolute bottom-24 right-6 w-14 h-14 bg-orange-500 rounded-full items-center justify-center shadow-lg"
+                className="absolute bottom-6 right-6 w-14 h-14 bg-apple-orange-500 rounded-full items-center justify-center shadow-lg transform active:scale-95"
                 onPress={handleUpload}
+                style={{ zIndex: 50, elevation: 5 }}
             >
                 <PlusCircle color="white" size={28} />
             </TouchableOpacity>
