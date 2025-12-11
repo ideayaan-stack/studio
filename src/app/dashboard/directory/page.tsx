@@ -15,6 +15,14 @@ import { cn } from '@/lib/utils';
 import { AvatarWithRing } from '@/components/dashboard/avatar-with-ring';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 
 export default function DirectoryPage() {
     const { db, userProfile } = useAuth();
@@ -188,57 +196,76 @@ export default function DirectoryPage() {
                                 ))}
                             </div>
                         ) : (
-                            <div className="rounded-md border">
-                                <div className="grid grid-cols-12 gap-4 p-4 border-b bg-muted/40 font-medium text-sm text-muted-foreground sticky top-0 z-10">
-                                    <div className="col-span-4 sm:col-span-3">User</div>
-                                    <div className="col-span-2 hidden sm:block">Role</div>
-                                    <div className="col-span-3 hidden md:block">Team</div>
-                                    <div className="col-span-4 sm:col-span-4 md:col-span-3">Email</div>
-                                    <div className="col-span-2 hidden xl:block">USN</div>
-                                    <div className="col-span-4 sm:col-span-3 md:col-span-1 text-right">Phone</div>
-                                </div>
-                                <div className="divide-y">
-                                    {filteredUsers.map((user) => (
-                                        <div key={user.uid} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-muted/10 transition-colors text-sm">
-                                            <div className="col-span-4 sm:col-span-3 flex items-center gap-3">
-                                                <AvatarWithRing
-                                                    src={getImageUrl(user.photoURL) || undefined}
-                                                    alt={user.displayName || 'User'}
-                                                    fallback={getInitials(user.displayName)}
-                                                    role={user.role}
-                                                    uid={user.uid}
-                                                    size="sm"
-                                                />
-                                                <span className="font-medium truncate">{user.displayName}</span>
-                                            </div>
-                                            <div className="col-span-2 hidden sm:block">
-                                                <Badge variant="secondary" className="capitalize text-xs font-normal">
-                                                    {user.role}
-                                                </Badge>
-                                            </div>
-                                            <div className="col-span-3 hidden md:block text-muted-foreground truncate">
-                                                {getTeamName(user.teamId)}
-                                            </div>
-                                            <div className="col-span-4 sm:col-span-4 md:col-span-3 truncate text-muted-foreground flex items-center gap-2 group cursor-pointer" onClick={() => user.email && copyToClipboard(user.email, 'Email')}>
-                                                {user.email}
-                                                <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            </div>
-                                            <div className="col-span-2 hidden xl:block text-muted-foreground truncate font-mono">
-                                                {user.usn || '-'}
-                                            </div>
-                                            <div className="col-span-4 sm:col-span-3 md:col-span-1 text-right flex items-center justify-end gap-2">
-                                                {user.phoneNumber ? (
-                                                    <div className="flex items-center gap-2 group cursor-pointer" onClick={() => copyToClipboard(user.phoneNumber!, 'Phone Number')}>
-                                                        <span>{user.phoneNumber}</span>
-                                                        <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="rounded-lg border bg-card/50 backdrop-blur-sm overflow-hidden">
+                                <Table>
+                                    <TableHeader className="bg-muted/50">
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead className="w-[30%]">User</TableHead>
+                                            <TableHead className="w-[15%] hidden sm:table-cell">Role</TableHead>
+                                            <TableHead className="w-[20%] hidden md:table-cell">Team</TableHead>
+                                            <TableHead className="w-[20%] hidden sm:table-cell">Email</TableHead>
+                                            <TableHead className="w-[10%] hidden xl:table-cell">USN</TableHead>
+                                            <TableHead className="text-right w-[15%] hidden sm:table-cell">Phone</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredUsers.map((user) => (
+                                            <TableRow key={user.uid} className="hover:bg-muted/50 transition-colors cursor-default group">
+                                                <TableCell className="font-medium">
+                                                    <div className="flex items-center gap-3">
+                                                        <AvatarWithRing
+                                                            src={getImageUrl(user.photoURL) || undefined}
+                                                            alt={user.displayName || 'User'}
+                                                            fallback={getInitials(user.displayName)}
+                                                            role={user.role}
+                                                            uid={user.uid}
+                                                            size="sm"
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-medium leading-none">{user.displayName || 'Unknown User'}</span>
+                                                            <span className="text-xs text-muted-foreground sm:hidden">{user.role}</span>
+                                                        </div>
                                                     </div>
-                                                ) : (
-                                                    <span className="text-muted-foreground/30 text-xs">None</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                                </TableCell>
+                                                <TableCell className="hidden sm:table-cell">
+                                                    <Badge variant="secondary" className="font-normal text-xs bg-muted text-muted-foreground hover:bg-muted/80">
+                                                        {user.role}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                                                    {getTeamName(user.teamId)}
+                                                </TableCell>
+                                                <TableCell className="hidden sm:table-cell">
+                                                    <div
+                                                        className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer group/copy w-fit"
+                                                        onClick={() => user.email && copyToClipboard(user.email, 'Email')}
+                                                        title="Copy Email"
+                                                    >
+                                                        <span className="truncate max-w-[200px]">{user.email}</span>
+                                                        <Copy className="h-3 w-3 opacity-0 group-hover/copy:opacity-100 transition-all text-primary" />
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="hidden xl:table-cell font-mono text-xs text-muted-foreground">
+                                                    {user.usn || '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right hidden sm:table-cell">
+                                                    {user.phoneNumber ? (
+                                                        <div
+                                                            className="flex items-center justify-end gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer group/copy w-full"
+                                                            onClick={() => copyToClipboard(user.phoneNumber!, 'Phone Number')}
+                                                            title="Copy Phone"
+                                                        >
+                                                            <span>{user.phoneNumber}</span>
+                                                            <Copy className="h-3 w-3 opacity-0 group-hover/copy:opacity-100 transition-all text-primary" />
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground/30 italic">None</span>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             </div>
                         )}
 
