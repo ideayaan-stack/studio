@@ -28,6 +28,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
                 setColorScheme(savedTheme as Theme);
             }
         });
+        // Force light mode for now per user request
+        setColorScheme('light');
     }, []);
 
     const setTheme = (newTheme: Theme) => {
@@ -36,7 +38,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.setItem('user-theme', newTheme);
     };
 
-    const isDark = colorScheme === 'dark';
+    const isDark = false; // Forced light mode
 
     return (
         <ThemeContext.Provider value={{ theme, setTheme, isDark }}>
