@@ -42,6 +42,7 @@ import { MessageItem } from '@/components/dashboard/message-item';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Palette } from 'lucide-react';
+import { sendTeamNotification, NotificationType } from '@/actions/notifications';
 
 interface ChatMessage {
   id: string;
@@ -244,6 +245,17 @@ export default function ChatPage() {
           text: replyTo.text,
         } : null,
       });
+
+      // Send Push Notification
+      if (selectedTeamId !== 'common') { // Don't spam common chat
+        sendTeamNotification({
+          teamId: selectedTeamId,
+          excludeUserId: userProfile.uid,
+          title: `New Message from ${userProfile.displayName || 'User'}`,
+          body: messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText,
+          type: 'chat'
+        }).catch(console.error);
+      }
       setMessageText('');
       setReplyTo(null);
     } catch (error) {

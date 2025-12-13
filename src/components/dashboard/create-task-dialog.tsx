@@ -27,6 +27,7 @@ import { notifyTaskAssignment } from '@/lib/notifications';
 import { sendTaskAssignmentEmail } from '@/lib/email-service';
 import { format } from 'date-fns';
 import { MultiSelectAssignDialog } from '@/components/dashboard/multi-select-assign-dialog';
+import { sendNotification } from '@/actions/notifications';
 import { Users } from 'lucide-react';
 
 const taskSchema = z.object({
@@ -35,7 +36,7 @@ const taskSchema = z.object({
   teamId: z.string().min(1, { message: 'Team is required' }),
   assigneeId: z.string().optional(),
   deadline: z.string().optional(),
-  status: z.enum(['Pending', 'In Progress', 'Completed']).default('Pending'),
+  status: z.enum(['Pending', 'In Progress', 'Completed']),
 });
 
 type TaskInput = z.infer<typeof taskSchema>;
@@ -148,8 +149,20 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
       if (assigneeData) {
         try {
           const assignee = users.find(u => u.uid === data.assigneeId);
-          // Browser notification
-          await notifyTaskAssignment(data.title, userProfile.displayName || 'Someone');
+          // Server-side Push Notification
+          await sendNotification({
+            userId: assigneeData.uid,
+            title: "New Task Assigned",
+            body: `${userProfile.displayName} assigned you: ${data.title}`,
+            type: "task",
+            data: {
+              taskId: "unknown", // we don't have the ID from addDoc response in original code easily without storing ref, assuming we don't strictly need it for navigation yet
+              click_action: "/dashboard/tasks"
+            }
+          });
+
+          // Browser notification - REMOVED (Confusing for assigner)
+          // await notifyTaskAssignment(data.title, userProfile.displayName || 'Someone');
 
           // Email notification (if email is available)
           if (assignee?.email) {
