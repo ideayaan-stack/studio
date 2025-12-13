@@ -36,7 +36,7 @@ const taskSchema = z.object({
   teamId: z.string().min(1, { message: 'Team is required' }),
   assigneeId: z.string().optional(),
   deadline: z.string().optional(),
-  status: z.enum(['Pending', 'In Progress', 'Completed']).default('Pending'),
+  status: z.enum(['Pending', 'In Progress', 'Completed']),
 });
 
 type TaskInput = z.infer<typeof taskSchema>;
