@@ -13,6 +13,12 @@ export interface UserProfile {
   role: Role;
   teamId?: string;
   teamIds?: string[];
+  notificationPreferences?: {
+    task?: boolean;
+    chat?: boolean;
+    team?: boolean;
+    email?: boolean;
+  };
 }
 
 export type NavItem = {

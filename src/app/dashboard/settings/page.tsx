@@ -142,7 +142,7 @@ export default function SettingsPage() {
                 <CardTitle>Notifications</CardTitle>
                 <CardDescription>Manage your notification preferences.</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
                 <NotificationSettings />
               </CardContent>
             </Card>
