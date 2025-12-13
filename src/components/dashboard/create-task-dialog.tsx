@@ -161,8 +161,8 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
             }
           });
 
-          // Browser notification
-          await notifyTaskAssignment(data.title, userProfile.displayName || 'Someone');
+          // Browser notification - REMOVED (Confusing for assigner)
+          // await notifyTaskAssignment(data.title, userProfile.displayName || 'Someone');
 
           // Email notification (if email is available)
           if (assignee?.email) {
