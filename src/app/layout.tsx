@@ -1,4 +1,12 @@
-import type { Metadata } from 'next';
+import { Analytics } from '@vercel/analytics/react';
+
+// ... (imports)
+
+// Inside component
+<FirebaseClientProvider>
+  {children}
+  <Analytics />
+</FirebaseClientProvider>
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
@@ -66,6 +74,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <FirebaseClientProvider>
             {children}
+            <Analytics />
           </FirebaseClientProvider>
           <Toaster />
         </ThemeProvider>

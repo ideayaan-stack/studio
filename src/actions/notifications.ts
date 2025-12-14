@@ -44,8 +44,9 @@ export async function sendNotification({
         }
 
         // 3. Send to all tokens
+        const uniqueTokens = Array.from(new Set(tokens));
         const response = await admin.messaging(firebaseApp).sendEachForMulticast({
-            tokens: tokens,
+            tokens: uniqueTokens,
             notification: {
                 title,
                 body,
