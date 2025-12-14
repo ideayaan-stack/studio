@@ -3,7 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/lib/theme-provider';
-import { Inter, Poppins } from 'next/font/google'
+import { Inter, Poppins } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/react';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -66,6 +67,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <FirebaseClientProvider>
             {children}
+            <Analytics />
           </FirebaseClientProvider>
           <Toaster />
         </ThemeProvider>
