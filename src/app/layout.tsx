@@ -1,17 +1,10 @@
-import { Analytics } from '@vercel/analytics/react';
-
-// ... (imports)
-
-// Inside component
-<FirebaseClientProvider>
-  {children}
-  <Analytics />
-</FirebaseClientProvider>
+import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { ThemeProvider } from '@/lib/theme-provider';
-import { Inter, Poppins } from 'next/font/google'
+import { Inter, Poppins } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/react';
 
 const inter = Inter({
   subsets: ['latin'],
