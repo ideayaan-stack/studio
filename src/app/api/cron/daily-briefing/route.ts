@@ -37,12 +37,25 @@ export async function GET(request: Request) {
             // Customize message per user if needed (e.g. "Good morning Sarvesh!")
             const name = userData.displayName || "there";
 
+            // Count pending tasks
+            const tasksQuery = await db.collection("tasks")
+                .where("assignee.uid", "==", doc.id)
+                .where("status", "!=", "Completed")
+                .get();
+
+            const pendingCount = tasksQuery.size;
+            let bodyText = `Ready for the day, ${name}? Check your updates.`;
+
+            if (pendingCount > 0) {
+                bodyText = `You have ${pendingCount} pending tasks waiting for you! 🚀`;
+            }
+
             try {
                 const resp = await messaging.sendEachForMulticast({
                     tokens: tokens,
                     notification: {
                         title: "Good Morning! ☀️",
-                        body: `Ready for the day, ${name}? Check your tasks and updates.`,
+                        body: bodyText,
                     },
                     data: {
                         type: "daily",
