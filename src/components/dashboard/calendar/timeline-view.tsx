@@ -29,6 +29,34 @@ export function TimelineView() {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const { db, userProfile } = useAuth();
 
+    // Drag to scroll state
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!scrollContainerRef.current) return;
+        setIsDragging(true);
+        setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+        setScrollLeft(scrollContainerRef.current.scrollLeft);
+    };
+
+    const handleMouseLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging || !scrollContainerRef.current) return;
+        e.preventDefault();
+        const x = e.pageX - scrollContainerRef.current.offsetLeft;
+        const walk = (x - startX) * 2; // Scroll-fast multiplier
+        scrollContainerRef.current.scrollLeft = scrollLeft - walk;
+    };
+
     // Fetch tasks
     const tasksQuery = useMemo(() => {
         if (!db || !userProfile) return null;
@@ -139,7 +167,17 @@ export function TimelineView() {
                 </div>
 
                 {/* Right Side: Timeline Grid */}
-                <div className="flex-1 flex flex-col overflow-hidden relative" ref={scrollContainerRef}>
+                <div
+                    className={cn(
+                        "flex-1 flex flex-col overflow-hidden relative select-none",
+                        isDragging ? "cursor-grabbing" : "cursor-grab"
+                    )}
+                    ref={scrollContainerRef}
+                    onMouseDown={handleMouseDown}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseUp={handleMouseUp}
+                    onMouseMove={handleMouseMove}
+                >
                     {/* Header Dates */}
                     <div className="h-12 flex border-b bg-muted/30 sticky top-0 z-10 min-w-max">
                         {days.map(day => (

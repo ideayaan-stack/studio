@@ -262,8 +262,18 @@ export default function FilesPage() {
               {filteredFiles.map((file) => (
                 <Card key={file.id} className="shadow-sm hover:shadow-md transition-shadow flex flex-col">
                   <CardHeader className="p-0 relative">
-                    <div className="w-full aspect-[4/3] bg-muted rounded-t-lg flex items-center justify-center">
-                      <FileTextIcon className="h-12 w-12 text-muted-foreground" />
+                    <div className="w-full aspect-[4/3] bg-muted rounded-t-lg flex items-center justify-center overflow-hidden relative">
+                      {/* Check if file is an image based on mime type or extension */}
+                      {(file.type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name)) && file.url ? (
+                        <img
+                          src={file.url}
+                          alt={file.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <FileTextIcon className="h-12 w-12 text-muted-foreground" />
+                      )}
                     </div>
                     <div className="absolute top-2 right-2">
                       <DropdownMenu>

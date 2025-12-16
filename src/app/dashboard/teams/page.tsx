@@ -323,7 +323,10 @@ export default function TeamsPage() {
                   ) : (
                     filteredTeams?.map((team) => {
                       const headUser = users?.find(u => u.uid === team.head);
-                      const memberCount = users?.filter(u => u.teamId === team.id).length || 0;
+                      // Update member count to check both primary teamId AND teamIds array
+                      const memberCount = users?.filter(u =>
+                        u.teamId === team.id || (u.teamIds && u.teamIds.includes(team.id))
+                      ).length || 0;
                       return (
                         <TableRow key={team.id}>
                           <TableCell className="font-medium">

@@ -97,90 +97,102 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
 
     setIsLoading(true);
     try {
-      // Handle optional assignee
-      let assigneeData = null;
-      if (data.assigneeId) {
-        const assignee = users.find(u => u.uid === data.assigneeId);
-        if (!assignee) {
-          throw new Error('Assignee not found');
-        }
-        assigneeData = {
-          uid: assignee.uid,
-          name: assignee.displayName || 'Unknown',
-          avatarUrl: assignee.photoURL || null,
-          avatarHint: assignee.displayName || '',
-        };
+      // HANDLE "ASSIGN TO ALL" LOGIC
+      let assignees: UserProfile[] = [];
+
+      if (data.assigneeId === '__all__') {
+        const teamUsers = users.filter(u => u.teamId === data.teamId || (u.teamIds && u.teamIds.includes(data.teamId)));
+        assignees = teamUsers;
+      } else if (data.assigneeId) {
+        const singleUser = users.find(u => u.uid === data.assigneeId);
+        if (singleUser) assignees = [singleUser];
       }
 
-      // Handle optional deadline (default to 7 days from now)
-      let deadlineDate: Date;
-      if (data.deadline) {
-        deadlineDate = new Date(data.deadline);
-        if (isNaN(deadlineDate.getTime())) {
-          throw new Error('Invalid deadline date');
-        }
-      } else {
-        deadlineDate = new Date();
-        deadlineDate.setDate(deadlineDate.getDate() + 7); // Default to 7 days from now
-      }
+      // If no specific assignee (unassigned or team-only), strictly create one unassigned task? 
+      // The user prompt implies "assign to whole teams... each team member should get mail... assigned team members".
+      // So if 'Unassigned' is chosen, it's just one task. If '__all__', it's N tasks.
 
-      await addDoc(collection(db, 'tasks'), {
-        title: data.title,
-        description: data.description || '',
-        status: data.status,
-        teamId: data.teamId,
-        assignee: assigneeData || {
+      const tasksToCreate = assignees.length > 0 ? assignees : [null]; // [null] means create one "Unassigned" task
+
+      for (const targetUser of tasksToCreate) {
+        let assigneeData = {
           uid: '',
           name: 'Unassigned',
           avatarUrl: null,
           avatarHint: '',
-        },
-        deadline: Timestamp.fromDate(deadlineDate),
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
+        };
 
-      toast({
-        title: 'Task Created',
-        description: `Task "${data.title}" has been created successfully.`,
-      });
+        if (targetUser) {
+          assigneeData = {
+            uid: targetUser.uid,
+            name: targetUser.displayName || 'Unknown',
+            avatarUrl: targetUser.photoURL || null,
+            avatarHint: targetUser.displayName || '',
+          };
+        }
 
-      // Send notifications only if assignee is selected
-      if (assigneeData) {
-        try {
-          const assignee = users.find(u => u.uid === data.assigneeId);
-          // Server-side Push Notification
-          await sendNotification({
-            userId: assigneeData.uid,
-            title: "New Task Assigned",
-            body: `${userProfile.displayName} assigned you: ${data.title}`,
-            type: "task",
-            data: {
-              taskId: "unknown", // we don't have the ID from addDoc response in original code easily without storing ref, assuming we don't strictly need it for navigation yet
-              click_action: "/dashboard/tasks"
-            }
-          });
-
-          // Browser notification - REMOVED (Confusing for assigner)
-          // await notifyTaskAssignment(data.title, userProfile.displayName || 'Someone');
-
-          // Email notification (if email is available)
-          if (assignee?.email) {
-            const deadlineStr = format(deadlineDate, 'MMM dd, yyyy HH:mm');
-            await sendTaskAssignmentEmail(
-              assignee.email,
-              assignee.displayName || assignee.email,
-              data.title,
-              deadlineStr,
-              userProfile.displayName || 'Someone',
-              availableTeams.find(t => t.id === data.teamId)?.name || 'Unknown Team'
-            );
+        // Handle optional deadline (default to 7 days from now)
+        let deadlineDate: Date;
+        if (data.deadline) {
+          deadlineDate = new Date(data.deadline);
+          if (isNaN(deadlineDate.getTime())) {
+            throw new Error('Invalid deadline date');
           }
-        } catch (notifError) {
-          // Don't fail the task creation if notifications fail
-          console.error('Error sending notifications:', notifError);
+        } else {
+          deadlineDate = new Date();
+          deadlineDate.setDate(deadlineDate.getDate() + 7); // Default to 7 days from now
+        }
+
+        await addDoc(collection(db, 'tasks'), {
+          title: data.title,
+          description: data.description || '',
+          status: data.status,
+          teamId: data.teamId,
+          assignee: assigneeData, // Use the specific assignee data for this iteration
+          deadline: Timestamp.fromDate(deadlineDate),
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+
+        // Send notifications ONLY if there is a target user
+        if (targetUser) {
+          try {
+            // Server-side Push Notification
+            await sendNotification({
+              userId: targetUser.uid,
+              title: "New Task Assigned",
+              body: `${userProfile.displayName} assigned you: ${data.title}`,
+              type: "task",
+              data: {
+                taskId: "unknown",
+                click_action: "/dashboard/tasks"
+              }
+            });
+
+            // Email notification
+            if (targetUser.email) {
+              const deadlineStr = format(deadlineDate, 'MMM dd, yyyy HH:mm');
+              await sendTaskAssignmentEmail(
+                targetUser.email,
+                targetUser.displayName || targetUser.email,
+                data.title,
+                deadlineStr,
+                userProfile.displayName || 'Someone',
+                availableTeams.find(t => t.id === data.teamId)?.name || 'Unknown Team'
+              );
+            }
+          } catch (notifError) {
+            console.error('Error sending notifications:', notifError);
+          }
         }
       }
+
+      toast({
+        title: 'Task(s) Created',
+        description: assignees.length > 1
+          ? `Created ${assignees.length} tasks for all team members.`
+          : `Task "${data.title}" has been created successfully.`,
+      });
 
       reset();
       setIsOpen(false);
@@ -210,7 +222,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
         setIsOpen(open);
       }}
     >
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
           <DialogDescription>
@@ -269,12 +281,11 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
                       // Assign to all members of selected team
                       const allTeamUserIds = teamUsers.map(u => u.uid);
                       if (allTeamUserIds.length > 0) {
-                        // For now, we'll assign to first member and note it's for all
-                        // In a real implementation, you'd create multiple tasks
-                        setValue('assigneeId', allTeamUserIds[0], { shouldValidate: true });
+                        // Set the special value '__all__' to trigger the mass assignment logic in onSubmit
+                        setValue('assigneeId', '__all__', { shouldValidate: true });
                         toast({
-                          title: 'Note',
-                          description: 'Task will be assigned to all team members. Multiple task instances will be created.',
+                          title: 'Bulk Assignment Selected',
+                          description: `A separate task will be created for each of the ${allTeamUserIds.length} team members.`,
                         });
                       }
                     } else if (value === '__custom__') {
@@ -282,7 +293,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
                       setIsMultiSelectOpen(true);
                     }
                   } else if (value === 'unassigned') {
-                    setValue('assigneeId', undefined, { shouldValidate: true });
+                    setValue('assigneeId', '', { shouldValidate: true });
                   } else {
                     setValue('assigneeId', value, { shouldValidate: true });
                   }
@@ -391,7 +402,7 @@ export function CreateTaskDialog({ isOpen, setIsOpen, teams, users }: CreateTask
           description="Choose specific teams and members to assign this task to."
         />
       </DialogContent>
-    </Dialog>
+    </Dialog >
   );
 }
 

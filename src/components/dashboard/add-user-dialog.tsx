@@ -174,7 +174,7 @@ export function AddUserDialog({ isOpen, setIsOpen, teams }: AddUserDialogProps) 
       }
       setIsOpen(open);
     }}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New User</DialogTitle>
           <DialogDescription>
